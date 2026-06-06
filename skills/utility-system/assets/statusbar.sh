@@ -71,17 +71,18 @@ panel_usage() {
 
 # ---------- panel: context window (per session) ----------
 panel_context() {
-  # Matches Claude's native context counter exactly: the count is total_input_tokens
-  # (input + cache reads/writes) — precisely what used_percentage is computed from.
-  # Output tokens are NOT part of the context-window "used" figure.
-  local M IN S UP; IFS=$'\t' read -r M IN S UP < <(printf '%s' "$input" | jq -r \
-    '[.model.display_name//"?", (.context_window.total_input_tokens//-1), (.context_window.context_window_size//200000), (.context_window.used_percentage//-1)] | @tsv')
+  # Count = exactly what the terminal footer ("/clear to save N tokens") shows =
+  # total_input_tokens + total_output_tokens (verified against the terminal: my
+  # input-only 224.5k vs footer 225.9k, the 1.4k gap being output). Percentage
+  # uses Claude's own used_percentage so the bar matches /context.
+  local M IN OUT S UP; IFS=$'\t' read -r M IN OUT S UP < <(printf '%s' "$input" | jq -r \
+    '[.model.display_name//"?", (.context_window.total_input_tokens//-1), (.context_window.total_output_tokens//0), (.context_window.context_window_size//200000), (.context_window.used_percentage//-1)] | @tsv')
   [ -z "$IN" ] || [ "$IN" = "-1" ] && return
   [ "$S" -le 0 ] && S=200000
-  local p
-  if [ -n "$UP" ] && [ "$UP" != "-1" ]; then p=$(int "$UP"); else p=$(( IN * 100 / S )); fi
+  local total=$((IN + OUT)) p
+  if [ -n "$UP" ] && [ "$UP" != "-1" ]; then p=$(int "$UP"); else p=$(( total * 100 / S )); fi
   [ "$p" -gt 100 ] && p=100; [ "$p" -lt 0 ] && p=0
-  local used sz; used=$(fmtk "$IN"); sz=$(fmtk "$S")
+  local used sz; used=$(fmtk "$total"); sz=$(fmtk "$S")
   add "$(printf 'CONTEXT %b%s\033[0m %d%% \033[90m%s/%s\033[0m' "$(colctx $p)" "$(mkbar $p)" "$p" "$used" "$sz")" "CONTEXT $PLAINBAR $p% $used/$sz"
 }
 
