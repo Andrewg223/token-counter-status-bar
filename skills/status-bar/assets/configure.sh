@@ -45,8 +45,8 @@ col() { local p=$1; if [ $p -ge 90 ]; then printf '\033[31m'; elif [ $p -ge 70 ]
 # sample segments for the live preview (illustrative numbers)
 preview_line() {
   local segs=()
-  [ "$PANEL_USAGE" = on ]   && segs+=("USAGE $(col 47)$(bar 47)$RST 47% ${DIM}2h13m$RST" "WEEK $(col 24)$(bar 24)$RST 24% ${DIM}Fri 13:00$RST")
-  [ "$PANEL_CONTEXT" = on ] && segs+=("CONTEXT ${CYN}$(bar 32)$RST 32% ${DIM}413.1k/1M$RST")
+  [ "$PANEL_USAGE" = on ]   && segs+=("SESSION $(col 47)$(bar 47)$RST 47% ${DIM}2h13m$RST" "WEEK $(col 24)$(bar 24)$RST 24% ${DIM}Fri 13:00$RST")
+  [ "$PANEL_CONTEXT" = on ] && segs+=("CONTEXT ${CYN}$(bar 32)$RST 32%")
   [ "$PANEL_COST" = on ]    && segs+=("COST \$0.42")
   [ "$PANEL_ACTIVE" = on ]  && segs+=("active ${DIM}16h10m$RST")
   [ "$PANEL_GIT" = on ]     && segs+=("GIT ${CYN}main$RST ${GRN}+2$RST ${YEL}~5$RST")

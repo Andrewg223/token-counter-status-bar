@@ -20,12 +20,6 @@ chmod +x "$DIR"/*.sh
 # wire settings.json (status line + notifier per config)
 "$DIR/sync-settings.sh"
 
-# install the /status-bar slash command (opens the admin panel)
-if [ -f "$SRC/../commands/status-bar.md" ]; then
-  mkdir -p "$HOME/.claude/commands"
-  cp "$SRC/../commands/status-bar.md" "$HOME/.claude/commands/status-bar.md"
-fi
-
 # add a `sb` alias to the user's shell rc (idempotent)
 ALIAS="alias sb='~/.claude/status-bar/configure.sh'"
 for rc in "$HOME/.zshrc" "$HOME/.bashrc"; do

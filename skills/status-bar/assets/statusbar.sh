@@ -62,7 +62,7 @@ panel_usage() {
   fi
   if [ -n "$SP" ]; then local p rs="" d; p=$(int "$SP")
     if [ -n "$SR" ]; then d=$((SR - now)); if [ $d -le 0 ]; then rs=now; else rs="$((d/3600))h$(((d%3600)/60))m"; fi; fi
-    add "$(printf 'USAGE %b%s\033[0m %d%% \033[90m%s\033[0m' "$(colpct $p)" "$(mkbar $p)" "$p" "$rs")" "USAGE $PLAINBAR $p% $rs"
+    add "$(printf 'SESSION %b%s\033[0m %d%% \033[90m%s\033[0m' "$(colpct $p)" "$(mkbar $p)" "$p" "$rs")" "SESSION $PLAINBAR $p% $rs"
   fi
   if [ -n "$WP" ]; then local p; p=$(int "$WP")
     add "$(printf 'WEEK %b%s\033[0m %d%% \033[90m%s\033[0m' "$(colpct $p)" "$(mkbar $p)" "$p" "$WSTR")" "WEEK $PLAINBAR $p% $WSTR"

@@ -4,29 +4,32 @@ A modular utility layer for the Claude Code terminal — a **status bar built fr
 
 ![Status Bar](assets/statusbar.png)
 
-The configurator — toggle panels and features, with a live preview:
+Open the configurator with **`! sb`** — toggle panels and features, live preview, `s` to save, `Esc` to close:
 
 ```
  Status Bar   configure your terminal status bar
 
-  > [x]  Plan usage     5h session + weekly (All Models) limits
-    [x]  Context        context-window fill for this session
-    [ ]  Cost           session cost estimate + elapsed time
-    [ ]  Git            branch, staged/modified, open PR
-    [ auto ] Layout     auto = one row, wraps when narrow
-    [ ]  Notifications  desktop ping on done / needs-input (macOS)
-    [ ]  Subagent rows  custom rows in the subagent panel
-    [ ]  Auto-allow Bash stop prompting for read-only commands
+  > [x]  Plan usage      5h session + weekly (All Models) limits
+    [x]  Context         context-window fill for this session
+    [ ]  Cost            session cost ($) — API billing only
+    [x]  Active time     how long this session has run
+    [x]  Git             branch, staged/modified, open PR
+    [ auto ] Layout      auto = one row, wraps when narrow
+    [ ]  Notifications   desktop ping on done / needs-input (macOS)
+    [ ]  Subagent rows   custom rows in the subagent panel
+    [ ]  Auto-allow Bash  stop prompting for read-only commands
 
  Preview
-  USAGE ▓▓▓▓░░░░░░ 47% 2h13m   WEEK ▓▓░░░░░░░░ 24% Fri 13:00   CTX ▓▓▓░░░ 32% 64k/200k
+  SESSION ▓▓▓▓░░░░░░ 47% 2h13m   WEEK ▓▓░░░░░░░░ 24% Fri 13:00   CONTEXT ▓▓▓░░░░░░░ 32%   active 17h39m
+
+ up/down move   space toggle / cycle layout   s save   esc/q exit
 ```
 
 ## Parts of the system
 
 **Status-bar panels** — compose into one responsive bar (one row, wraps to stacked rows when narrow). Panels are **billing-aware** and hide when not relevant to the current chat:
 - **Plan usage** — 5h session + weekly (All-Models) limits, coloured bars + reset times, synced to one value across every terminal at near-zero CPU. *(subscription only)*
-- **Context** — context-window fill: percentage + tokens used, counted as `total_input_tokens + total_output_tokens` so it matches Claude's own "tokens to save" counter.
+- **Context** — context-window fill as a percentage (Claude's own `used_percentage`, matching `/context`).
 - **Cost** — session cost in dollars. *(API / pay-per-use only — it's notional on a subscription)*
 - **Active** — how long this session has been running.
 - **Git** — branch, staged/modified counts, open PR + review state.
@@ -45,9 +48,9 @@ cp -R skills/status-bar ~/.claude/skills/
 ~/.claude/skills/status-bar/assets/install.sh
 ```
 
-Then open the admin panel by typing **`! sb`** in the Claude prompt (the `!` runs it in your real terminal, then returns to Claude on exit). `/status-bar` is a slash command that reminds you of this. In the panel: arrow keys move, **space** toggles or cycles the layout, live preview, **s** save, **Esc**/**q** to return. Requires `jq`; macOS for the notifier.
+Then open the panel by typing **`! sb`** in the Claude prompt (or just `sb` in any terminal). The `!` runs it in your real terminal and returns to Claude on exit. In the panel: arrow keys move, **space** toggles or cycles the layout, live preview, **s** save, **Esc**/**q** to return. Requires `jq`; macOS for the notifier.
 
-A plain slash command can't take over the terminal (it only prompts Claude), so the interactive panel launches via the `!` bang-prefix.
+**Why `! sb` and not a `/command`:** a custom slash command always goes through the model (you'd see it "think"), and Claude Code's native dialogs aren't user-extensible. The `!` bang-prefix is the only way to open an interactive panel instantly with no model involvement.
 
 ## How it stays cheap
 

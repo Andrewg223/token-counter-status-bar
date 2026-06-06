@@ -9,7 +9,7 @@ One modular system for the Claude Code terminal experience. Everything is a togg
 
 **Status-bar panels** (compose into one responsive bar; billing-aware — each hides when not relevant):
 - **Plan usage** — 5h session + weekly (All-Models) limits, synced to one value across all terminals. *(subscription only)*
-- **Context** — context-window %, with tokens counted as `total_input_tokens + total_output_tokens` to match Claude's native "tokens to save" counter.
+- **Context** — context-window fill as a percentage (Claude's own `used_percentage`, matching `/context`).
 - **Cost** — session cost in dollars. *(API / pay-per-use only)*
 - **Active** — how long this session has been running.
 - **Git** — branch, staged/modified counts, open PR + review state.
@@ -23,28 +23,27 @@ One modular system for the Claude Code terminal experience. Everything is a togg
 
 ## The configurator / admin panel (the app)
 
-Open it by typing **`! sb`** in the Claude prompt (the `!` runs it in your real terminal so the full-screen app works; it returns to Claude on exit). `/status-bar` is a discoverable slash command that reminds you of this. Or run `sb` / `~/.claude/status-bar/configure.sh` directly in a terminal.
+Open it by typing **`! sb`** in the Claude prompt (or just `sb` in any terminal). The `!` runs it in your real terminal so the full-screen app works, and returns to Claude on exit. Arrow keys move, **space** toggles a panel/feature or cycles the layout, with a **live preview** of the bar, **s** to save, **Esc** (or **q**) to return. Saving writes the config and syncs `settings.json`.
 
-It's a full-screen admin panel: arrow keys move, **space** toggles a panel/feature or cycles the layout, with a **live preview** of the bar, **s** to save, **Esc** (or **q**) to return. Saving writes the config and syncs `settings.json`.
-
-> A plain `/slash` command can't take over the terminal (it only sends a prompt to Claude, which has no interactive TTY). The `!` bang-prefix is the supported way to launch an interactive TUI — that's why the panel opens with `! sb`.
+> There is no instant `/slash` command for this. A custom slash command always goes through the model (you'd see it "think"), and Claude Code's native dialogs aren't user-extensible. The `!` bang-prefix is the only way to open the panel instantly with no model involvement — so the panel opens with `! sb`.
 
 ```
  Status Bar   configure your terminal status bar
 
-  > [x]  Plan usage     5h session + weekly (All Models) limits
-    [x]  Context        context-window fill for this session
-    [ ]  Cost           session cost estimate + elapsed time
-    [ ]  Git            branch, staged/modified, open PR
-    [ auto ] Layout     auto = one row, wraps when narrow
-    [ ]  Notifications  desktop ping on done / needs-input (macOS)
-    [ ]  Subagent rows  custom rows in the subagent panel
-    [ ]  Auto-allow Bash stop prompting for read-only commands
+  > [x]  Plan usage      5h session + weekly (All Models) limits
+    [x]  Context         context-window fill for this session
+    [ ]  Cost            session cost ($) — API billing only
+    [x]  Active time     how long this session has run
+    [x]  Git             branch, staged/modified, open PR
+    [ auto ] Layout      auto = one row, wraps when narrow
+    [ ]  Notifications   desktop ping on done / needs-input (macOS)
+    [ ]  Subagent rows   custom rows in the subagent panel
+    [ ]  Auto-allow Bash  stop prompting for read-only commands
 
  Preview
-  USAGE ▓▓▓▓░░░░░░ 47% 2h13m   WEEK ▓▓░░░░░░░░ 24% Fri 13:00   CTX ...
+  SESSION ▓▓▓▓░░░░░░ 47% 2h13m   WEEK ▓▓░░░░░░░░ 24% Fri 13:00   CONTEXT ▓▓▓░░░░░░░ 32%   active 17h39m
 
- up/down move   space toggle / cycle layout   s save   q quit
+ up/down move   space toggle / cycle layout   s save   esc/q exit
 ```
 
 ## Install
