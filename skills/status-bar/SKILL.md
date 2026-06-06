@@ -1,6 +1,6 @@
 ---
 name: status-bar
-description: A modular Claude Code "status bar" — a status bar built from toggleable panels (plan usage, context window, cost, git/PR) plus settings features (desktop notifications, subagent rows, a read-only Bash allowlist), all configured from one visual in-terminal app. Use when the user wants to add, change, turn on/off, or configure their Claude Code status bar or any of these meters/features; when they ask to "open the configurator", "set up my status bar", "show usage/context/cost/git in the terminal"; or when they want a single place to manage these terminal utilities. Installs runtime to ~/.claude/status-bar/, wires settings.json, and provides an interactive configurator (the `sb` command).
+description: A modular Claude Code "status bar" — a status bar built from toggleable panels (plan usage, context window, cost, git/PR) plus settings features (desktop notifications, subagent rows, a read-only Bash allowlist), all configured from one visual in-terminal app. Use when the user wants to add, change, turn on/off, or configure their Claude Code status bar or any of these meters/features; when they ask to "open the configurator", "set up my status bar", "show usage/context/cost/git in the terminal"; or when they want a single place to manage these terminal utilities. Installs runtime to ~/.claude/status-bar/, wires settings.json; functions are turned on/off by editing ~/.claude/status-bar/config.
 ---
 
 # Status Bar
@@ -21,30 +21,25 @@ One modular system for the Claude Code terminal experience. Everything is a togg
 
 **Extra:** a `session-namer.sh` alias snippet (`cc`) to launch Claude with a folder-derived session name (opt-in; not a settings toggle).
 
-## The configurator / admin panel (the app)
+## Turn functions on/off
 
-Open it by typing **`! sb`** in the Claude prompt (or just `sb` in any terminal). The `!` runs it in your real terminal so the full-screen app works, and returns to Claude on exit. Arrow keys move, **space** toggles a panel/feature or cycles the layout, with a **live preview** of the bar, **s** to save, **Esc** (or **q**) to return. Saving writes the config and syncs `settings.json`.
-
-> There is no instant `/slash` command for this. A custom slash command always goes through the model (you'd see it "think"), and Claude Code's native dialogs aren't user-extensible. The `!` bang-prefix is the only way to open the panel instantly with no model involvement — so the panel opens with `! sb`.
+Edit **`~/.claude/status-bar/config`** — it's the list of every function; set each `on` or `off`:
 
 ```
- Status Bar   configure your terminal status bar
-
-  > [x]  Plan usage      5h session + weekly (All Models) limits
-    [x]  Context         context-window fill for this session
-    [ ]  Cost            session cost ($) — API billing only
-    [x]  Active time     how long this session has run
-    [x]  Git             branch, staged/modified, open PR
-    [ auto ] Layout      auto = one row, wraps when narrow
-    [ ]  Notifications   desktop ping on done / needs-input (macOS)
-    [ ]  Subagent rows   custom rows in the subagent panel
-    [ ]  Auto-allow Bash  stop prompting for read-only commands
-
- Preview
-  SESSION ▓▓▓▓░░░░░░ 47% 2h13m   WEEK ▓▓░░░░░░░░ 24% Fri 13:00   CONTEXT ▓▓▓░░░░░░░ 32%   active 17h39m
-
- up/down move   space toggle / cycle layout   s save   esc/q exit
+PANEL_USAGE=on     # SESSION + WEEK plan-usage bars   (subscription only)
+PANEL_CONTEXT=on   # context-window %
+PANEL_COST=off     # session cost ($)                 (API / pay-per-use only)
+PANEL_ACTIVE=on    # how long this session has run
+PANEL_GIT=off      # git branch, staged/modified, open PR
+LAYOUT=auto        # auto = one row, wraps when narrow | row | stack
+NOTIFIER=off       # desktop notification on done / needs-input
+SUBAGENT=off       # custom rows in the subagent panel
+SAFEBASH=off       # auto-allow read-only Bash
 ```
+
+Panel changes show on the bar's next refresh. After changing NOTIFIER / SUBAGENT / SAFEBASH, run `~/.claude/status-bar/sync-settings.sh`.
+
+> There is no interactive popup, by design: a custom `/command` always invokes the model, Claude Code's native dialogs aren't user-extensible, and the status line is display-only (it can't be turned into a keyboard/clickable menu). Editing the config file is the simple, model-free way to toggle.
 
 ## Install
 
@@ -58,8 +53,7 @@ The installer deploys the runtime to `~/.claude/status-bar/`, writes a default c
 ## For Claude (when the user wants to change their status bar)
 
 1. Make sure it's installed (run `assets/install.sh` if `~/.claude/status-bar/` is missing).
-2. The configurator is **interactive**, so the user runs it themselves — tell them to run `sb`, or suggest `! ~/.claude/status-bar/configure.sh` to launch it in-session.
-3. For a non-interactive change, edit `~/.claude/status-bar/config` (e.g. `PANEL_GIT=on`) and run `~/.claude/status-bar/sync-settings.sh`.
+2. To change which functions show, edit `~/.claude/status-bar/config` (e.g. `PANEL_GIT=on`). Panel changes apply on the next refresh; after changing NOTIFIER / SUBAGENT / SAFEBASH also run `~/.claude/status-bar/sync-settings.sh`.
 
 ## How it stays cheap
 
@@ -69,8 +63,8 @@ Adding terminals doesn't multiply work. The account-wide usage panel uses a shar
 
 - `statusbar.sh` — the status line: renders enabled panels, composes layout.
 - `usage-read.sh` — shared aggregator for the usage panel.
-- `configure.sh` — the visual configurator app.
 - `sync-settings.sh` — writes our entries into `settings.json` (preserves yours; timestamped backup).
+- `config` — the toggle list (on/off per function).
 - `install.sh` — deploy + wire + alias.
 - `notify.sh`, `subagent-statusline.sh`, `session-namer.sh`, `config.default`.
 

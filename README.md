@@ -1,29 +1,25 @@
 # Status Bar
 
-A modular utility layer for the Claude Code terminal — a **status bar built from toggleable panels** plus a few **settings features**, all managed from one **visual in-terminal app**. The repo is the system; each panel and feature is a part you switch on or off.
+A modular utility layer for the Claude Code terminal — a **status bar built from toggleable panels** plus a few **settings features**. The repo is the system; each panel and feature is a part you switch on or off in a one-line config file.
 
 ![Status Bar](assets/statusbar.png)
 
-Open the configurator with **`! sb`** — toggle panels and features, live preview, `s` to save, `Esc` to close:
+**Toggle functions by editing `~/.claude/status-bar/config`** — it's the list of every function; set each `on` or `off`:
 
 ```
- Status Bar   configure your terminal status bar
-
-  > [x]  Plan usage      5h session + weekly (All Models) limits
-    [x]  Context         context-window fill for this session
-    [ ]  Cost            session cost ($) — API billing only
-    [x]  Active time     how long this session has run
-    [x]  Git             branch, staged/modified, open PR
-    [ auto ] Layout      auto = one row, wraps when narrow
-    [ ]  Notifications   desktop ping on done / needs-input (macOS)
-    [ ]  Subagent rows   custom rows in the subagent panel
-    [ ]  Auto-allow Bash  stop prompting for read-only commands
-
- Preview
-  SESSION ▓▓▓▓░░░░░░ 47% 2h13m   WEEK ▓▓░░░░░░░░ 24% Fri 13:00   CONTEXT ▓▓▓░░░░░░░ 32%   active 17h39m
-
- up/down move   space toggle / cycle layout   s save   esc/q exit
+# Status Bar — your functions.  on = shown,  off = hidden.
+PANEL_USAGE=on        # SESSION + WEEK plan-usage bars   (subscription only)
+PANEL_CONTEXT=on      # context-window %
+PANEL_COST=off        # session cost ($)                 (API / pay-per-use only)
+PANEL_ACTIVE=on       # how long this session has run
+PANEL_GIT=off         # git branch, staged/modified, open PR
+LAYOUT=auto           # auto = one row, wraps when narrow | row | stack
+NOTIFIER=off          # desktop notification on done / needs-input (macOS)
+SUBAGENT=off          # custom rows in the subagent panel
+SAFEBASH=off          # auto-allow read-only Bash
 ```
+
+Panel changes show on the bar's next refresh. After changing the last three (settings features), run `~/.claude/status-bar/sync-settings.sh`.
 
 ## Parts of the system
 
@@ -48,9 +44,9 @@ cp -R skills/status-bar ~/.claude/skills/
 ~/.claude/skills/status-bar/assets/install.sh
 ```
 
-Then open the panel by typing **`! sb`** in the Claude prompt (or just `sb` in any terminal). The `!` runs it in your real terminal and returns to Claude on exit. In the panel: arrow keys move, **space** toggles or cycles the layout, live preview, **s** save, **Esc**/**q** to return. Requires `jq`; macOS for the notifier.
+Then turn functions on/off by editing **`~/.claude/status-bar/config`** (shown above). Requires `jq`; macOS for the notifier.
 
-**Why `! sb` and not a `/command`:** a custom slash command always goes through the model (you'd see it "think"), and Claude Code's native dialogs aren't user-extensible. The `!` bang-prefix is the only way to open an interactive panel instantly with no model involvement.
+**Why a config file and not a popup:** Claude Code can't open an interactive popup for this — a custom `/command` always goes through the model, native dialogs aren't user-extensible, and the status line is display-only (it can't be made into a clickable/keyboard menu). The config file is the simplest thing that actually works: edit, save, done.
 
 ## How it stays cheap
 
