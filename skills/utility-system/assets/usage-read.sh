@@ -1,9 +1,9 @@
 #!/bin/bash
 # Aggregate every session's snapshot in ~/.claude/utility-system/usage/*.json into ONE
-# authoritative reading. The account-wide limits are identical across sessions, so
-# the source of truth is the FRESHEST real observation: the entry with the latest
-# written_at. (The data tap only updates written_at when rate_limits were actually
-# present, so a stale snapshot cannot masquerade as fresh.)
+# authoritative reading. Account-wide usage only CLIMBS within a window, so the truth is
+# the HIGHEST used_percentage among readings whose window has not reset yet (resets_at in
+# the future). Highest-wins is deterministic (every window computes the same value, no
+# flicker) and a stale low snapshot an idle session re-reports can never win.
 #
 # ONE jq call. No per-file validation: writers use "<id>.json.tmp.$$" + atomic
 # mv, and that tmp suffix doesn't match *.json, so readers never see a partial
@@ -19,12 +19,13 @@ files=("$DIR"/*.json)
 [ ${#files[@]} -eq 0 ] && { echo "$EMPTY"; exit 0; }
 
 jq -s '
-  # Only consider readings whose window has NOT reset yet (resets_at in the future);
-  # a past reset means a stale window an idle session re-reported. Among the valid
-  # current-window readings, take the freshest write.
+  # Consider only readings whose window has NOT reset yet (resets_at in the future) — a
+  # past reset is a stale window an idle session re-reported. Usage only climbs within a
+  # window, so the HIGHEST percentage is the current value (newest write breaks ties).
+  # Highest-wins is immune to an idle session re-stamping an old snapshot as "fresh".
   def pick(p; r):
     [ .[] | select(.[p] != null) | select((.[r] // 0) > now) ]
-    | sort_by(.written_at // 0)
+    | sort_by([.[p], (.written_at // 0)])
     | last;
   (pick("session_pct"; "session_resets_at")) as $s |
   (pick("weekly_pct";  "weekly_resets_at"))  as $w |
