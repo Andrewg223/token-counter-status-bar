@@ -1,12 +1,12 @@
 #!/bin/bash
-# Claude Utility System — visual configurator (the in-terminal app).
+# Status Bar — visual configurator (the in-terminal app).
 # Toggle status-bar panels and features, pick a layout, see a live preview, save.
 # Keys:  up/down (or k/j) move   space toggle/cycle   s save   q quit
 #
-# Run it directly in your terminal:  cus    (alias installed by install.sh)
-# It writes ~/.claude/utility-system/config and syncs settings.json.
+# Run it directly in your terminal:  sb    (alias installed by install.sh)
+# It writes ~/.claude/status-bar/config and syncs settings.json.
 
-DIR="$HOME/.claude/utility-system"
+DIR="$HOME/.claude/status-bar"
 CFG="$DIR/config"
 mkdir -p "$DIR"
 
@@ -61,7 +61,7 @@ preview_line() {
 
 draw() {
   printf '\033[H\033[2J'
-  printf '%s Claude Utility System %s  %sconfigure your terminal status bar%s\n\n' "$INV$BOLD" "$RST" "$DIM" "$RST"
+  printf '%s Status Bar %s  %sconfigure your terminal status bar%s\n\n' "$INV$BOLD" "$RST" "$DIM" "$RST"
   local i name lbl desc val mark
   for i in "${!ROWS[@]}"; do
     name="${ROWS[$i]}"; eval "lbl=\$LABEL_$name; desc=\$DESC_$name"
@@ -93,7 +93,7 @@ toggle() {
 
 save() {
   {
-    echo "# Claude Utility System config (written by the configurator)"
+    echo "# Status Bar config (written by the configurator)"
     echo "PANEL_USAGE=$PANEL_USAGE"
     echo "PANEL_CONTEXT=$PANEL_CONTEXT"
     echo "PANEL_COST=$PANEL_COST"

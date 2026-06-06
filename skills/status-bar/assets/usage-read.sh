@@ -1,5 +1,5 @@
 #!/bin/bash
-# Aggregate every session's snapshot in ~/.claude/utility-system/usage/*.json into ONE
+# Aggregate every session's snapshot in ~/.claude/status-bar/usage/*.json into ONE
 # authoritative reading. Account-wide usage only CLIMBS within a window, so the truth is
 # the HIGHEST used_percentage among readings whose window has not reset yet (resets_at in
 # the future). Highest-wins is deterministic (every window computes the same value, no
@@ -11,7 +11,7 @@
 #
 # Prints one JSON object on stdout.
 
-DIR="$HOME/.claude/utility-system/usage"
+DIR="$HOME/.claude/status-bar/usage"
 EMPTY='{"session_pct":null,"session_resets_at":null,"session_written_at":0,"weekly_pct":null,"weekly_resets_at":null,"weekly_written_at":0}'
 
 shopt -s nullglob

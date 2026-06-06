@@ -1,12 +1,12 @@
 #!/bin/bash
-# Claude Utility System — status-bar renderer.
+# Status Bar — status-bar renderer.
 # Reads the config, renders ONLY the enabled panels as modular segments, then
 # composes them into one row (wrapping to stacked rows when narrow). Designed to
 # be cheap: the account-wide usage panel uses a shared cache (one session
 # computes, the rest read); the other panels read this session's JSON directly.
 
 input=$(cat)
-DIR="$HOME/.claude/utility-system"
+DIR="$HOME/.claude/status-bar"
 [ -r "$DIR/config" ] && . "$DIR/config"
 : "${PANEL_USAGE:=on}"; : "${PANEL_CONTEXT:=on}"; : "${PANEL_COST:=off}"; : "${PANEL_ACTIVE:=on}"; : "${PANEL_GIT:=off}"; : "${LAYOUT:=auto}"
 
@@ -102,7 +102,7 @@ panel_active() {
 panel_git() {
   local DIRP SID PRN PRS; IFS=$'\t' read -r DIRP SID PRN PRS < <(printf '%s' "$input" | jq -r \
     '[.workspace.current_dir//".", .session_id//"x", (.pr.number//""), (.pr.review_state//"")] | @tsv')
-  local CG="/tmp/cus-git-$SID" fresh=0
+  local CG="/tmp/sb-git-$SID" fresh=0
   if [ -f "$CG" ]; then [ $(( now - $(stat -f %m "$CG" 2>/dev/null || echo 0) )) -lt 3 ] && fresh=1; fi
   if [ "$fresh" = 0 ]; then
     if git -C "$DIRP" rev-parse --git-dir >/dev/null 2>&1; then

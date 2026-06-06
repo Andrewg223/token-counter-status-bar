@@ -1,9 +1,9 @@
 ---
-name: utility-system
-description: A modular Claude Code "utility system" — a status bar built from toggleable panels (plan usage, context window, cost, git/PR) plus settings features (desktop notifications, subagent rows, a read-only Bash allowlist), all configured from one visual in-terminal app. Use when the user wants to add, change, turn on/off, or configure their Claude Code status bar or any of these meters/features; when they ask to "open the configurator", "set up my status bar", "show usage/context/cost/git in the terminal"; or when they want a single place to manage these terminal utilities. Installs runtime to ~/.claude/utility-system/, wires settings.json, and provides an interactive configurator (the `cus` command).
+name: status-bar
+description: A modular Claude Code "status bar" — a status bar built from toggleable panels (plan usage, context window, cost, git/PR) plus settings features (desktop notifications, subagent rows, a read-only Bash allowlist), all configured from one visual in-terminal app. Use when the user wants to add, change, turn on/off, or configure their Claude Code status bar or any of these meters/features; when they ask to "open the configurator", "set up my status bar", "show usage/context/cost/git in the terminal"; or when they want a single place to manage these terminal utilities. Installs runtime to ~/.claude/status-bar/, wires settings.json, and provides an interactive configurator (the `sb` command).
 ---
 
-# Claude Utility System
+# Status Bar
 
 One modular system for the Claude Code terminal experience. Everything is a toggleable part of a larger whole, configured from a single visual app.
 
@@ -23,14 +23,14 @@ One modular system for the Claude Code terminal experience. Everything is a togg
 
 ## The configurator / admin panel (the app)
 
-Open it by typing **`! cus`** in the Claude prompt (the `!` runs it in your real terminal so the full-screen app works; it returns to Claude on exit). `/utility-system` is a discoverable slash command that reminds you of this. Or run `cus` / `~/.claude/utility-system/configure.sh` directly in a terminal.
+Open it by typing **`! sb`** in the Claude prompt (the `!` runs it in your real terminal so the full-screen app works; it returns to Claude on exit). `/status-bar` is a discoverable slash command that reminds you of this. Or run `sb` / `~/.claude/status-bar/configure.sh` directly in a terminal.
 
 It's a full-screen admin panel: arrow keys move, **space** toggles a panel/feature or cycles the layout, with a **live preview** of the bar, **s** to save, **Esc** (or **q**) to return. Saving writes the config and syncs `settings.json`.
 
-> A plain `/slash` command can't take over the terminal (it only sends a prompt to Claude, which has no interactive TTY). The `!` bang-prefix is the supported way to launch an interactive TUI — that's why the panel opens with `! cus`.
+> A plain `/slash` command can't take over the terminal (it only sends a prompt to Claude, which has no interactive TTY). The `!` bang-prefix is the supported way to launch an interactive TUI — that's why the panel opens with `! sb`.
 
 ```
- Claude Utility System   configure your terminal status bar
+ Status Bar   configure your terminal status bar
 
   > [x]  Plan usage     5h session + weekly (All Models) limits
     [x]  Context        context-window fill for this session
@@ -50,17 +50,17 @@ It's a full-screen admin panel: arrow keys move, **space** toggles a panel/featu
 ## Install
 
 ```sh
-cp -R skills/utility-system ~/.claude/skills/
-~/.claude/skills/utility-system/assets/install.sh
+cp -R skills/status-bar ~/.claude/skills/
+~/.claude/skills/status-bar/assets/install.sh
 ```
 
-The installer deploys the runtime to `~/.claude/utility-system/`, writes a default config, wires the status line into `settings.json`, and adds the `cus` alias. Requires `jq`; macOS for the notifier (`osascript`).
+The installer deploys the runtime to `~/.claude/status-bar/`, writes a default config, wires the status line into `settings.json`, and adds the `sb` alias. Requires `jq`; macOS for the notifier (`osascript`).
 
 ## For Claude (when the user wants to change their status bar)
 
-1. Make sure it's installed (run `assets/install.sh` if `~/.claude/utility-system/` is missing).
-2. The configurator is **interactive**, so the user runs it themselves — tell them to run `cus`, or suggest `! ~/.claude/utility-system/configure.sh` to launch it in-session.
-3. For a non-interactive change, edit `~/.claude/utility-system/config` (e.g. `PANEL_GIT=on`) and run `~/.claude/utility-system/sync-settings.sh`.
+1. Make sure it's installed (run `assets/install.sh` if `~/.claude/status-bar/` is missing).
+2. The configurator is **interactive**, so the user runs it themselves — tell them to run `sb`, or suggest `! ~/.claude/status-bar/configure.sh` to launch it in-session.
+3. For a non-interactive change, edit `~/.claude/status-bar/config` (e.g. `PANEL_GIT=on`) and run `~/.claude/status-bar/sync-settings.sh`.
 
 ## How it stays cheap
 

@@ -1,5 +1,5 @@
-# Claude Utility System — configuration.
-# Edit by hand, or run the configurator:  cus   (opens the visual panel app)
+# Status Bar — configuration.
+# Edit by hand, or run the configurator:  sb   (opens the visual panel app)
 #
 # Status-bar panels (on / off). Each enabled panel becomes a module in the bar.
 # Panels are billing-aware and hide when not relevant to the current chat:

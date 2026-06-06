@@ -1,13 +1,13 @@
-# Claude Utility System
+# Status Bar
 
 A modular utility layer for the Claude Code terminal — a **status bar built from toggleable panels** plus a few **settings features**, all managed from one **visual in-terminal app**. The repo is the system; each panel and feature is a part you switch on or off.
 
-![Claude Utility System status bar](assets/statusbar.png)
+![Status Bar](assets/statusbar.png)
 
 The configurator — toggle panels and features, with a live preview:
 
 ```
- Claude Utility System   configure your terminal status bar
+ Status Bar   configure your terminal status bar
 
   > [x]  Plan usage     5h session + weekly (All Models) limits
     [x]  Context        context-window fill for this session
@@ -41,11 +41,11 @@ The configurator — toggle panels and features, with a live preview:
 ## Install
 
 ```sh
-cp -R skills/utility-system ~/.claude/skills/
-~/.claude/skills/utility-system/assets/install.sh
+cp -R skills/status-bar ~/.claude/skills/
+~/.claude/skills/status-bar/assets/install.sh
 ```
 
-Then open the admin panel by typing **`! cus`** in the Claude prompt (the `!` runs it in your real terminal, then returns to Claude on exit). `/utility-system` is a slash command that reminds you of this. In the panel: arrow keys move, **space** toggles or cycles the layout, live preview, **s** save, **Esc**/**q** to return. Requires `jq`; macOS for the notifier.
+Then open the admin panel by typing **`! sb`** in the Claude prompt (the `!` runs it in your real terminal, then returns to Claude on exit). `/status-bar` is a slash command that reminds you of this. In the panel: arrow keys move, **space** toggles or cycles the layout, live preview, **s** save, **Esc**/**q** to return. Requires `jq`; macOS for the notifier.
 
 A plain slash command can't take over the terminal (it only prompts Claude), so the interactive panel launches via the `!` bang-prefix.
 
