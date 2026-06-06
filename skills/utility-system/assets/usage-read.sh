@@ -1,8 +1,9 @@
 #!/bin/bash
 # Aggregate every session's snapshot in ~/.claude/utility-system/usage/*.json into ONE
-# authoritative reading: newest reset-window wins; within a window the highest
-# used_percentage wins (usage only climbs); newest write breaks ties. The rule
-# is deterministic, so every window computes the identical value.
+# authoritative reading. The account-wide limits are identical across sessions, so
+# the source of truth is the FRESHEST real observation: the entry with the latest
+# written_at. (The data tap only updates written_at when rate_limits were actually
+# present, so a stale snapshot cannot masquerade as fresh.)
 #
 # ONE jq call. No per-file validation: writers use "<id>.json.tmp.$$" + atomic
 # mv, and that tmp suffix doesn't match *.json, so readers never see a partial
@@ -18,12 +19,12 @@ files=("$DIR"/*.json)
 [ ${#files[@]} -eq 0 ] && { echo "$EMPTY"; exit 0; }
 
 jq -s '
-  def pick(p; r):
+  def pick(p):
     [ .[] | select(.[p] != null) ]
-    | sort_by([(.[r] // -1), .[p], (.written_at // 0)])
+    | sort_by(.written_at // 0)
     | last;
-  (pick("session_pct"; "session_resets_at")) as $s |
-  (pick("weekly_pct";  "weekly_resets_at"))  as $w |
+  (pick("session_pct")) as $s |
+  (pick("weekly_pct"))  as $w |
   {
     session_pct:        ($s.session_pct        // null),
     session_resets_at:  ($s.session_resets_at  // null),

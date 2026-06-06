@@ -20,10 +20,11 @@ A modular utility layer for the Claude Code terminal — a **status bar built fr
 
 ## Parts of the system
 
-**Status-bar panels** — compose into one responsive bar (one row, wraps to stacked rows when narrow):
-- **Plan usage** — 5h session + weekly (All-Models) limits, coloured bars + reset times, synced to one value across every terminal at near-zero CPU.
-- **Context** — context-window fill for the session.
-- **Cost** — session cost estimate + elapsed time.
+**Status-bar panels** — compose into one responsive bar (one row, wraps to stacked rows when narrow). Panels are **billing-aware** and hide when not relevant to the current chat:
+- **Plan usage** — 5h session + weekly (All-Models) limits, coloured bars + reset times, synced to one value across every terminal at near-zero CPU. *(subscription only)*
+- **Context** — context-window fill: percentage + tokens used, counted as `total_input_tokens + total_output_tokens` so it matches Claude's own "tokens to save" counter.
+- **Cost** — session cost in dollars. *(API / pay-per-use only — it's notional on a subscription)*
+- **Active** — how long this session has been running.
 - **Git** — branch, staged/modified counts, open PR + review state.
 
 **Settings features** — synced into `settings.json` (your other settings preserved):

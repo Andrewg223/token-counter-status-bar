@@ -7,10 +7,11 @@ description: A modular Claude Code "utility system" — a status bar built from 
 
 One modular system for the Claude Code terminal experience. Everything is a toggleable part of a larger whole, configured from a single visual app.
 
-**Status-bar panels** (compose into one responsive bar):
-- **Plan usage** — 5h session + weekly (All-Models) limits, synced to one value across all terminals.
-- **Context** — context-window fill for this session.
-- **Cost** — session cost estimate + elapsed time.
+**Status-bar panels** (compose into one responsive bar; billing-aware — each hides when not relevant):
+- **Plan usage** — 5h session + weekly (All-Models) limits, synced to one value across all terminals. *(subscription only)*
+- **Context** — context-window %, with tokens counted as `total_input_tokens + total_output_tokens` to match Claude's native "tokens to save" counter.
+- **Cost** — session cost in dollars. *(API / pay-per-use only)*
+- **Active** — how long this session has been running.
 - **Git** — branch, staged/modified counts, open PR + review state.
 
 **Settings features** (synced into `settings.json`):

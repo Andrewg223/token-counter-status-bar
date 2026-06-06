@@ -11,14 +11,15 @@ CFG="$DIR/config"
 mkdir -p "$DIR"
 
 # defaults, then load current config
-PANEL_USAGE=on; PANEL_CONTEXT=on; PANEL_COST=off; PANEL_GIT=off; LAYOUT=auto
+PANEL_USAGE=on; PANEL_CONTEXT=on; PANEL_COST=off; PANEL_ACTIVE=on; PANEL_GIT=off; LAYOUT=auto
 NOTIFIER=off; SUBAGENT=off; SAFEBASH=off
 [ -r "$CFG" ] && . "$CFG"
 
-ROWS=(usage context cost git layout notifier subagent safebash)
+ROWS=(usage context cost active git layout notifier subagent safebash)
 LABEL_usage="Plan usage";   DESC_usage="5h session + weekly (All Models) limits"
 LABEL_context="Context";    DESC_context="context-window fill for this session"
-LABEL_cost="Cost";          DESC_cost="session cost estimate + elapsed time"
+LABEL_cost="Cost";          DESC_cost="session cost (\$) — API billing only"
+LABEL_active="Active time"; DESC_active="how long this session has run"
 LABEL_git="Git";            DESC_git="branch, staged/modified, open PR"
 LABEL_layout="Layout";      DESC_layout="auto = one row, wraps when narrow"
 LABEL_notifier="Notifications"; DESC_notifier="desktop ping on done / needs-input (macOS)"
@@ -34,7 +35,7 @@ cleanup() { printf '\033[?25h\033[?1049l'; }    # show cursor, leave alt screen
 trap cleanup EXIT
 printf '\033[?1049h\033[?25l'                    # alt screen, hide cursor
 
-state() { case "$1" in usage) echo "$PANEL_USAGE";; context) echo "$PANEL_CONTEXT";; cost) echo "$PANEL_COST";; git) echo "$PANEL_GIT";; notifier) echo "$NOTIFIER";; subagent) echo "$SUBAGENT";; safebash) echo "$SAFEBASH";; esac; }
+state() { case "$1" in usage) echo "$PANEL_USAGE";; context) echo "$PANEL_CONTEXT";; cost) echo "$PANEL_COST";; active) echo "$PANEL_ACTIVE";; git) echo "$PANEL_GIT";; notifier) echo "$NOTIFIER";; subagent) echo "$SUBAGENT";; safebash) echo "$SAFEBASH";; esac; }
 
 bar() { local p=$1 f=$((p/10)) e i b=""; e=$((10-f)); i=0
   while [ $i -lt $f ]; do b+="$FILL"; i=$((i+1)); done
@@ -45,8 +46,9 @@ col() { local p=$1; if [ $p -ge 90 ]; then printf '\033[31m'; elif [ $p -ge 70 ]
 preview_line() {
   local segs=()
   [ "$PANEL_USAGE" = on ]   && segs+=("USAGE $(col 47)$(bar 47)$RST 47% ${DIM}2h13m$RST" "WEEK $(col 24)$(bar 24)$RST 24% ${DIM}Fri 13:00$RST")
-  [ "$PANEL_CONTEXT" = on ] && segs+=("CTX $(col 32)$(bar 32)$RST 32% ${DIM}64k/200k$RST")
-  [ "$PANEL_COST" = on ]    && segs+=("COST \$0.42 ${DIM}12m04s$RST")
+  [ "$PANEL_CONTEXT" = on ] && segs+=("CONTEXT $(col 32)$(bar 32)$RST 32% ${DIM}64k/200k$RST")
+  [ "$PANEL_COST" = on ]    && segs+=("COST \$0.42")
+  [ "$PANEL_ACTIVE" = on ]  && segs+=("active ${DIM}16h10m$RST")
   [ "$PANEL_GIT" = on ]     && segs+=("GIT ${CYN}main$RST ${GRN}+2$RST ${YEL}~5$RST")
   [ ${#segs[@]} -eq 0 ] && { printf '%s(no panels enabled)%s' "$DIM" "$RST"; return; }
   if [ "$LAYOUT" = stack ]; then
@@ -80,6 +82,7 @@ toggle() {
     usage)    [ "$PANEL_USAGE" = on ] && PANEL_USAGE=off || PANEL_USAGE=on ;;
     context)  [ "$PANEL_CONTEXT" = on ] && PANEL_CONTEXT=off || PANEL_CONTEXT=on ;;
     cost)     [ "$PANEL_COST" = on ] && PANEL_COST=off || PANEL_COST=on ;;
+    active)   [ "$PANEL_ACTIVE" = on ] && PANEL_ACTIVE=off || PANEL_ACTIVE=on ;;
     git)      [ "$PANEL_GIT" = on ] && PANEL_GIT=off || PANEL_GIT=on ;;
     notifier) [ "$NOTIFIER" = on ] && NOTIFIER=off || NOTIFIER=on ;;
     subagent) [ "$SUBAGENT" = on ] && SUBAGENT=off || SUBAGENT=on ;;
@@ -94,6 +97,7 @@ save() {
     echo "PANEL_USAGE=$PANEL_USAGE"
     echo "PANEL_CONTEXT=$PANEL_CONTEXT"
     echo "PANEL_COST=$PANEL_COST"
+    echo "PANEL_ACTIVE=$PANEL_ACTIVE"
     echo "PANEL_GIT=$PANEL_GIT"
     echo "LAYOUT=$LAYOUT"
     echo "NOTIFIER=$NOTIFIER"

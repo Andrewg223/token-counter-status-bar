@@ -8,7 +8,7 @@
 input=$(cat)
 DIR="$HOME/.claude/utility-system"
 [ -r "$DIR/config" ] && . "$DIR/config"
-: "${PANEL_USAGE:=on}"; : "${PANEL_CONTEXT:=on}"; : "${PANEL_COST:=off}"; : "${PANEL_GIT:=off}"; : "${LAYOUT:=auto}"
+: "${PANEL_USAGE:=on}"; : "${PANEL_CONTEXT:=on}"; : "${PANEL_COST:=off}"; : "${PANEL_ACTIVE:=on}"; : "${PANEL_GIT:=off}"; : "${LAYOUT:=auto}"
 
 now=$(date +%s)
 FILL=$(printf '\342\226\223'); EMP=$(printf '\342\226\221')
@@ -24,6 +24,11 @@ mkbar() { local p=$1 f e i b=""; [ "$p" -gt 100 ] && p=100; [ "$p" -lt 0 ] && p=
   printf '%s' "$b"; }
 colpct() { local p=$1; if [ "$p" -ge 90 ]; then printf '\033[31m'; elif [ "$p" -ge 70 ]; then printf '\033[33m'; else printf '\033[32m'; fi; }
 int() { printf '%.0f' "${1:-0}" 2>/dev/null || echo 0; }
+# format a token count like the native counter: 413100 -> 413.1k, 257000 -> 257k, 1000000 -> 1M
+fmtk() { local n=${1:-0} u d
+  if [ "$n" -ge 1000000 ]; then u=$((n/1000000)); d=$(((n%1000000)/100000)); [ "$d" -eq 0 ] && printf '%dM' "$u" || printf '%d.%dM' "$u" "$d"
+  elif [ "$n" -ge 1000 ]; then u=$((n/1000)); d=$(((n%1000)/100)); [ "$d" -eq 0 ] && printf '%dk' "$u" || printf '%d.%dk' "$u" "$d"
+  else printf '%d' "$n"; fi; }
 
 # ---------- panel: plan usage (account-wide, shared-cache, low-CPU) ----------
 panel_usage() {
@@ -33,7 +38,9 @@ panel_usage() {
   SID="${SID//[^A-Za-z0-9_.-]/_}"
   local OWN="$DIR/usage/$SID.json" om
   om=$(stat -f %m "$OWN" 2>/dev/null || echo 0)
-  if [ $((now - om)) -ge 5 ]; then
+  # Only record when this tick actually carries rate_limits (a real observation),
+  # so written_at always means "freshly seen" — never a stale value re-stamped.
+  if [[ "$input" == *'"rate_limits"'* ]] && [ $((now - om)) -ge 5 ]; then
     local OLD; OLD=$(jq -c . "$OWN" 2>/dev/null || echo '{}')
     if printf '%s' "$input" | jq --argjson old "$OLD" '{
         session_pct:(.rate_limits.five_hour.used_percentage//$old.session_pct//null),
@@ -61,22 +68,30 @@ panel_usage() {
 
 # ---------- panel: context window (per session) ----------
 panel_context() {
-  local M P T S; IFS=$'\t' read -r M P T S < <(printf '%s' "$input" | jq -r \
-    '[.model.display_name//"?", (.context_window.used_percentage//-1), (.context_window.total_input_tokens//0), (.context_window.context_window_size//200000)] | @tsv')
-  [ -z "$P" ] || [ "$P" = "-1" ] && return
-  local p; p=$(int "$P")
-  local tk; if [ "$T" -ge 1000 ]; then tk="$((T/1000))k"; else tk="$T"; fi
-  local sz; if [ "$S" -ge 1000 ]; then sz="$((S/1000))k"; else sz="$S"; fi
-  add "$(printf 'CTX %b%s\033[0m %d%% \033[90m%s/%s\033[0m' "$(colpct $p)" "$(mkbar $p)" "$p" "$tk" "$sz")" "CTX $PLAINBAR $p% $tk/$sz"
+  # Match the native counter: full context = input (incl. cache) + output tokens.
+  local M IN OUT S; IFS=$'\t' read -r M IN OUT S < <(printf '%s' "$input" | jq -r \
+    '[.model.display_name//"?", (.context_window.total_input_tokens//-1), (.context_window.total_output_tokens//0), (.context_window.context_window_size//200000)] | @tsv')
+  [ -z "$IN" ] || [ "$IN" = "-1" ] && return
+  [ "$S" -le 0 ] && S=200000
+  local total=$((IN + OUT)) p
+  p=$(( total * 100 / S )); [ "$p" -gt 100 ] && p=100; [ "$p" -lt 0 ] && p=0
+  local used sz; used=$(fmtk "$total"); sz=$(fmtk "$S")
+  add "$(printf 'CONTEXT %b%s\033[0m %d%% \033[90m%s/%s\033[0m' "$(colpct $p)" "$(mkbar $p)" "$p" "$used" "$sz")" "CONTEXT $PLAINBAR $p% $used/$sz"
 }
 
-# ---------- panel: cost + duration (per session) ----------
+# ---------- panel: cost, $ only (per session, API/pay-per-use) ----------
 panel_cost() {
-  local C D; IFS=$'\t' read -r C D < <(printf '%s' "$input" | jq -r \
-    '[(.cost.total_cost_usd//0), (.cost.total_duration_ms//0)] | @tsv')
-  local cf; cf=$(printf '$%.2f' "$C"); local sec=$((D/1000)) m s; m=$((sec/60)); s=$((sec%60))
-  local t; t=$(printf '%dm%02ds' "$m" "$s")
-  add "$(printf 'COST %s \033[90m%s\033[0m' "$cf" "$t")" "COST $cf $t"
+  local C; C=$(printf '%s' "$input" | jq -r '.cost.total_cost_usd // 0')
+  local cf; cf=$(printf '$%.2f' "$C")
+  add "$(printf 'COST %s' "$cf")" "COST $cf"
+}
+
+# ---------- element: active time (how long this session has run; any billing) ----------
+panel_active() {
+  local D; D=$(printf '%s' "$input" | jq -r '.cost.total_duration_ms // 0')
+  local sec=$((D/1000)) h m t; h=$((sec/3600)); m=$(((sec%3600)/60))
+  if [ "$h" -gt 0 ]; then t="${h}h${m}m"; else t="${m}m$((sec%60))s"; fi
+  add "$(printf 'active \033[90m%s\033[0m' "$t")" "active $t"
 }
 
 # ---------- panel: git + PR (per session, git cached 3s) ----------
@@ -102,9 +117,15 @@ panel_git() {
   add "$(printf '%b' "$col")" "$plain"
 }
 
-[ "$PANEL_USAGE" = on ] && panel_usage
+# Billing-aware: a Pro/Max subscription exposes rate_limits and is bounded by usage
+# limits (not $); API/pay-per-use has no rate_limits and is billed by $ cost. Show
+# only what's relevant to the current chat's billing mode.
+case "$input" in *'"rate_limits"'*) SUB=1;; *) SUB=0;; esac
+
+[ "$PANEL_USAGE" = on ] && [ "$SUB" = 1 ] && panel_usage     # usage limits: subscription only
 [ "$PANEL_CONTEXT" = on ] && panel_context
-[ "$PANEL_COST" = on ] && panel_cost
+[ "$PANEL_COST" = on ] && [ "$SUB" = 0 ] && panel_cost       # $ cost: API/pay-per-use only
+[ "$PANEL_ACTIVE" = on ] && panel_active                     # session active-time: any billing
 [ "$PANEL_GIT" = on ] && panel_git
 
 n=${#SEGS[@]}; [ "$n" -eq 0 ] && exit 0

@@ -2,9 +2,12 @@
 # Edit by hand, or run the configurator:  cus   (opens the visual panel app)
 #
 # Status-bar panels (on / off). Each enabled panel becomes a module in the bar.
-PANEL_USAGE=on        # plan usage: 5h session + weekly (All Models) limits
+# Panels are billing-aware and hide when not relevant to the current chat:
+#   usage shows only on a Pro/Max subscription; cost shows only on API/pay-per-use.
+PANEL_USAGE=on        # plan usage: 5h session + weekly (All Models) — subscription only
 PANEL_CONTEXT=on      # context-window fill for this session
-PANEL_COST=off        # session cost estimate + elapsed time
+PANEL_COST=off        # session cost ($) — API / pay-per-use only
+PANEL_ACTIVE=on       # how long this session has been active (any billing)
 PANEL_GIT=off         # git branch, staged/modified counts, open PR
 
 # Layout:
