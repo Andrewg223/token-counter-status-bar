@@ -21,14 +21,28 @@ The test: *drop the skill into a stranger's Claude Code with none of your projec
 
 ## Skills
 
-### plan-usage-statusline
-A status line showing your Claude plan usage — current 5-hour session and weekly (All-Models) windows — as compact coloured bars with reset times:
+**Status lines** (Claude Code runs one at a time — see *Composing* below):
+- **[plan-usage-statusline](skills/plan-usage-statusline/)** — plan usage: 5-hour session + weekly (All-Models) as coloured bars with reset times, on one row that wraps to two when narrow. Synced to one value across all terminals at near-zero CPU. `SESSION ▓▓▓▓░░░░░░ 42% 2h13m   WEEKLY ▓▓░░░░░░░░ 24% Fri 13:00`
+- **[context-meter](skills/context-meter/)** — context-window bar, percentage, and tokens used vs window size. `[Opus] ctx ▓▓▓░░░░░░░ 32% 64k/200k`
+- **[cost-and-duration](skills/cost-and-duration/)** — session cost estimate, wall-clock + API time, lines changed. `[Opus] $0.42  12m04s  api 2m10s  +156 -23`
+- **[git-and-pr-state](skills/git-and-pr-state/)** — branch, staged/modified counts, open PR + review state (git calls cached 3s). `[Opus] main +2 ~5  PR #1234 (approved)`
 
-```
-SESSION ▓▓▓▓░░░░░░ 42% 2h13m   WEEKLY ▓▓░░░░░░░░ 24% Fri 13:00
-```
+**Patterns:**
+- **[low-cpu-statusline-pattern](skills/low-cpu-statusline-pattern/)** — the "one session computes a shared value, every other terminal just reads it" recipe + a fill-in template. Use when a status line needs shared or expensive data; avoids the fork/exec storm that pins `sysmond` and lags typing.
 
-One row that wraps to two when the terminal is narrow. The value is synced to a single number across every terminal and session, and it costs almost no CPU: one session computes the shared value, every other terminal just reads it. Requires a Pro/Max plan and Claude Code v2.1.153+. See [`skills/plan-usage-statusline/SKILL.md`](skills/plan-usage-statusline/SKILL.md).
+**Hooks & notifications:**
+- **[done-and-input-notifier](skills/done-and-input-notifier/)** — Stop + Notification hooks that fire a macOS desktop notification when a run finishes or needs your input.
+
+**Permissions:**
+- **[auto-allow-safe-bash](skills/auto-allow-safe-bash/)** — a conservative read-only Bash allowlist to stop prompting for `ls`, `git diff`, etc. Read-only only; nothing that writes or hits the network.
+
+**Ergonomics:**
+- **[session-namer](skills/session-namer/)** — a shell function that launches Claude with a session name from the folder + time, so multiple sessions are easy to tell apart.
+- **[subagent-statusline](skills/subagent-statusline/)** — custom rows for the subagent panel (label, type, token count); composes with any status line.
+
+## Composing status lines
+
+Claude Code runs **one** `statusLine` command. The status-line skills above are drop-in alternatives — install one, or compose several by writing a wrapper that feeds the same JSON (`input=$(cat)`) to each segment and joins the output, or by printing multiple lines (each `echo`/`printf` line is a row). `subagent-statusline` is separate (`subagentStatusLine`) and always composes.
 
 ## Install
 
