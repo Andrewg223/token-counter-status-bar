@@ -1,6 +1,6 @@
 ---
 name: status-bar
-description: A modular Claude Code "status bar" — a status bar built from toggleable panels (plan usage, context window, cost, git/PR) plus settings features (desktop notifications, subagent rows, a read-only Bash allowlist), all configured from one visual in-terminal app. Use when the user wants to add, change, turn on/off, or configure their Claude Code status bar or any of these meters/features; when they ask to "open the configurator", "set up my status bar", "show usage/context/cost/git in the terminal"; or when they want a single place to manage these terminal utilities. Installs runtime to ~/.claude/status-bar/, wires settings.json; functions are turned on/off by editing ~/.claude/status-bar/config.
+description: A modular Claude Code "status bar" — a status bar built from toggleable panels (plan usage, context window, cost, git/PR) plus settings features (desktop notifications, subagent rows, a read-only Bash allowlist), all toggled on/off in a one-line config file. Use when the user wants to add, change, turn on/off, or configure their Claude Code status bar or any of these meters/features; when they ask to "set up my status bar", "hide/show a panel", "show usage/context/cost/git in the terminal"; or when they want a single place to manage these terminal utilities. Installs runtime to ~/.claude/status-bar/, wires settings.json; functions are turned on/off by editing ~/.claude/status-bar/config.
 ---
 
 # Status Bar
@@ -48,7 +48,7 @@ cp -R skills/status-bar ~/.claude/skills/
 ~/.claude/skills/status-bar/assets/install.sh
 ```
 
-The installer deploys the runtime to `~/.claude/status-bar/`, writes a default config, wires the status line into `settings.json`, and adds the `sb` alias. Requires `jq`; macOS for the notifier (`osascript`).
+The installer deploys the runtime to `~/.claude/status-bar/`, writes a default config, and wires the status line into `settings.json`. Then edit `~/.claude/status-bar/config` to turn functions on/off. Requires `jq`; macOS for the notifier (`osascript`).
 
 ## For Claude (when the user wants to change their status bar)
 
