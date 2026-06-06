@@ -8,7 +8,7 @@
 input=$(cat)
 DIR="$HOME/.claude/status-bar"
 [ -r "$DIR/config" ] && . "$DIR/config"
-: "${PANEL_USAGE:=on}"; : "${PANEL_CONTEXT:=on}"; : "${PANEL_COST:=off}"; : "${PANEL_ACTIVE:=on}"; : "${PANEL_GIT:=off}"; : "${LAYOUT:=auto}"
+: "${PANEL_USAGE:=on}"; : "${PANEL_CONTEXT:=on}"; : "${PANEL_COST:=off}"; : "${PANEL_ACTIVE:=on}"; : "${PANEL_GIT:=off}"; : "${PANEL_MENU:=on}"; : "${LAYOUT:=auto}"
 
 now=$(date +%s)
 FILL=$(printf '\342\226\223'); EMP=$(printf '\342\226\221')
@@ -121,6 +121,15 @@ panel_git() {
   add "$(printf '%b' "$col")" "$plain"
 }
 
+# ---------- panel: menu hint (how to control the bar — via the chat) ----------
+# The bar has no clickable/keyboard menu (the status line is display-only). The
+# control surface is the chat: a CLAUDE.md block (added at install) lets any
+# session toggle panels/settings on request. This line advertises that.
+panel_menu() {
+  local t="ask chat to toggle panels / settings"
+  add "$(printf '\033[90mMENU %s\033[0m' "$t")" "MENU $t"
+}
+
 # Billing-aware: a Pro/Max subscription exposes rate_limits and is bounded by usage
 # limits (not $); API/pay-per-use has no rate_limits and is billed by $ cost. Show
 # only what's relevant to the current chat's billing mode.
@@ -131,6 +140,7 @@ case "$input" in *'"rate_limits"'*) SUB=1;; *) SUB=0;; esac
 [ "$PANEL_COST" = on ] && [ "$SUB" = 0 ] && panel_cost       # $ cost: API/pay-per-use only
 [ "$PANEL_ACTIVE" = on ] && panel_active                     # session active-time: any billing
 [ "$PANEL_GIT" = on ] && panel_git
+[ "$PANEL_MENU" = on ] && panel_menu                         # control-hint line: any billing
 
 n=${#SEGS[@]}; [ "$n" -eq 0 ] && exit 0
 

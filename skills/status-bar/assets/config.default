@@ -10,6 +10,7 @@ PANEL_CONTEXT=on      # context-window %
 PANEL_COST=off        # session cost ($)                 (API / pay-per-use only)
 PANEL_ACTIVE=on       # how long this session has run
 PANEL_GIT=off         # git branch, staged/modified, open PR
+PANEL_MENU=on         # hint line: "ask chat to toggle panels / settings"
 
 # --- layout:  auto = one row, wraps when narrow  |  row  |  stack ---
 LAYOUT=auto
