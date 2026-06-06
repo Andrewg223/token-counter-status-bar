@@ -1,0 +1,5 @@
+.DS_Store
+*.tmp.*
+
+# APPS PM-system artifacts (auto-injected by the library watcher) — keep them out of the public repo
+index.md
