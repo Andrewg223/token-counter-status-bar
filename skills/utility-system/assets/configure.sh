@@ -46,7 +46,7 @@ col() { local p=$1; if [ $p -ge 90 ]; then printf '\033[31m'; elif [ $p -ge 70 ]
 preview_line() {
   local segs=()
   [ "$PANEL_USAGE" = on ]   && segs+=("USAGE $(col 47)$(bar 47)$RST 47% ${DIM}2h13m$RST" "WEEK $(col 24)$(bar 24)$RST 24% ${DIM}Fri 13:00$RST")
-  [ "$PANEL_CONTEXT" = on ] && segs+=("CONTEXT $(col 32)$(bar 32)$RST 32% ${DIM}64k/200k$RST")
+  [ "$PANEL_CONTEXT" = on ] && segs+=("CONTEXT ${CYN}$(bar 32)$RST 32% ${DIM}413.1k/1M$RST")
   [ "$PANEL_COST" = on ]    && segs+=("COST \$0.42")
   [ "$PANEL_ACTIVE" = on ]  && segs+=("active ${DIM}16h10m$RST")
   [ "$PANEL_GIT" = on ]     && segs+=("GIT ${CYN}main$RST ${GRN}+2$RST ${YEL}~5$RST")
@@ -72,7 +72,7 @@ draw() {
   done
   printf '\n %sPreview%s\n' "$BOLD" "$RST"
   preview_line
-  printf '\n %sup/down%s move   %sspace%s toggle / cycle layout   %ss%s save   %sq%s quit\n' "$DIM" "$RST" "$DIM" "$RST" "$DIM" "$RST" "$DIM" "$RST"
+  printf '\n %sup/down%s move   %sspace%s toggle / cycle layout   %ss%s save   %sesc/q%s exit\n' "$DIM" "$RST" "$DIM" "$RST" "$DIM" "$RST" "$DIM" "$RST"
   [ -n "$MSG" ] && printf '\n %s%s%s\n' "$GRN" "$MSG" "$RST"
 }
 
@@ -112,13 +112,18 @@ MSG=""
 draw
 while true; do
   IFS= read -rsn1 key
-  if [ "$key" = $'\033' ]; then read -rsn2 -t 0.001 rest; case "$rest" in '[A') key=up;; '[B') key=down;; esac; fi
+  # ESC alone quits; ESC + [A/[B is an arrow key. After ESC, read the next bytes
+  # with a short timeout: nothing follows -> bare ESC (quit); [A/[B -> arrows.
+  if [ "$key" = $'\033' ]; then
+    read -rsn2 -t 0.1 rest
+    case "$rest" in '[A') key=up ;; '[B') key=down ;; *) key=quit ;; esac
+  fi
   case "$key" in
-    up|k)    cur=$(( (cur - 1 + ${#ROWS[@]}) % ${#ROWS[@]} )); MSG="" ;;
-    down|j)  cur=$(( (cur + 1) % ${#ROWS[@]} )); MSG="" ;;
-    ' '|'')  toggle; MSG="" ;;
-    s|S)     save ;;
-    q|Q)     break ;;
+    up|k)     cur=$(( (cur - 1 + ${#ROWS[@]}) % ${#ROWS[@]} )); MSG="" ;;
+    down|j)   cur=$(( (cur + 1) % ${#ROWS[@]} )); MSG="" ;;
+    ' '|'')   toggle; MSG="" ;;
+    s|S)      save ;;
+    q|Q|quit) break ;;
   esac
   draw
 done

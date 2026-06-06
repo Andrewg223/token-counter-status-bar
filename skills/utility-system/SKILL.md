@@ -21,9 +21,13 @@ One modular system for the Claude Code terminal experience. Everything is a togg
 
 **Extra:** a `session-namer.sh` alias snippet (`cc`) to launch Claude with a folder-derived session name (opt-in; not a settings toggle).
 
-## The configurator (the app)
+## The configurator / admin panel (the app)
 
-Run `cus` (or `~/.claude/utility-system/configure.sh`) in your terminal. It's a full-screen app: arrow keys move, **space** toggles a panel/feature or cycles the layout, with a **live preview** of the bar, **s** to save, **q** to quit. Saving writes the config and syncs `settings.json`.
+Open it by typing **`! cus`** in the Claude prompt (the `!` runs it in your real terminal so the full-screen app works; it returns to Claude on exit). `/utility-system` is a discoverable slash command that reminds you of this. Or run `cus` / `~/.claude/utility-system/configure.sh` directly in a terminal.
+
+It's a full-screen admin panel: arrow keys move, **space** toggles a panel/feature or cycles the layout, with a **live preview** of the bar, **s** to save, **Esc** (or **q**) to return. Saving writes the config and syncs `settings.json`.
+
+> A plain `/slash` command can't take over the terminal (it only sends a prompt to Claude, which has no interactive TTY). The `!` bang-prefix is the supported way to launch an interactive TUI — that's why the panel opens with `! cus`.
 
 ```
  Claude Utility System   configure your terminal status bar

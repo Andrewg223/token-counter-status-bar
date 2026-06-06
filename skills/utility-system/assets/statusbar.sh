@@ -23,6 +23,9 @@ mkbar() { local p=$1 f e i b=""; [ "$p" -gt 100 ] && p=100; [ "$p" -lt 0 ] && p=
   i=0; while [ $i -lt $e ]; do b+="$EMP"; i=$((i+1)); done
   printf '%s' "$b"; }
 colpct() { local p=$1; if [ "$p" -ge 90 ]; then printf '\033[31m'; elif [ "$p" -ge 70 ]; then printf '\033[33m'; else printf '\033[32m'; fi; }
+# context bar uses a distinct hue (cyan) so it reads differently from the plan-limit
+# bars; turns red only when nearly full (about to compact).
+colctx() { local p=$1; if [ "$p" -ge 90 ]; then printf '\033[31m'; else printf '\033[36m'; fi; }
 int() { printf '%.0f' "${1:-0}" 2>/dev/null || echo 0; }
 # format a token count like the native counter: 413100 -> 413.1k, 257000 -> 257k, 1000000 -> 1M
 fmtk() { local n=${1:-0} u d
@@ -68,15 +71,17 @@ panel_usage() {
 
 # ---------- panel: context window (per session) ----------
 panel_context() {
-  # Match the native counter: full context = input (incl. cache) + output tokens.
-  local M IN OUT S; IFS=$'\t' read -r M IN OUT S < <(printf '%s' "$input" | jq -r \
-    '[.model.display_name//"?", (.context_window.total_input_tokens//-1), (.context_window.total_output_tokens//0), (.context_window.context_window_size//200000)] | @tsv')
+  # Token count matches Claude's native "/clear to save N tokens" footer = input + output.
+  # Percentage uses Claude's own context % (used_percentage, input-only) so the bar matches /context.
+  local M IN OUT S UP; IFS=$'\t' read -r M IN OUT S UP < <(printf '%s' "$input" | jq -r \
+    '[.model.display_name//"?", (.context_window.total_input_tokens//-1), (.context_window.total_output_tokens//0), (.context_window.context_window_size//200000), (.context_window.used_percentage//-1)] | @tsv')
   [ -z "$IN" ] || [ "$IN" = "-1" ] && return
   [ "$S" -le 0 ] && S=200000
   local total=$((IN + OUT)) p
-  p=$(( total * 100 / S )); [ "$p" -gt 100 ] && p=100; [ "$p" -lt 0 ] && p=0
+  if [ -n "$UP" ] && [ "$UP" != "-1" ]; then p=$(int "$UP"); else p=$(( total * 100 / S )); fi
+  [ "$p" -gt 100 ] && p=100; [ "$p" -lt 0 ] && p=0
   local used sz; used=$(fmtk "$total"); sz=$(fmtk "$S")
-  add "$(printf 'CONTEXT %b%s\033[0m %d%% \033[90m%s/%s\033[0m' "$(colpct $p)" "$(mkbar $p)" "$p" "$used" "$sz")" "CONTEXT $PLAINBAR $p% $used/$sz"
+  add "$(printf 'CONTEXT %b%s\033[0m %d%% \033[90m%s/%s\033[0m' "$(colctx $p)" "$(mkbar $p)" "$p" "$used" "$sz")" "CONTEXT $PLAINBAR $p% $used/$sz"
 }
 
 # ---------- panel: cost, $ only (per session, API/pay-per-use) ----------

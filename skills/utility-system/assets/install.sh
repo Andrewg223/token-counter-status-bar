@@ -20,6 +20,12 @@ chmod +x "$DIR"/*.sh
 # wire settings.json (status line + notifier per config)
 "$DIR/sync-settings.sh"
 
+# install the /utility-system slash command (opens the admin panel)
+if [ -f "$SRC/../commands/utility-system.md" ]; then
+  mkdir -p "$HOME/.claude/commands"
+  cp "$SRC/../commands/utility-system.md" "$HOME/.claude/commands/utility-system.md"
+fi
+
 # add a `cus` alias to the user's shell rc (idempotent)
 ALIAS="alias cus='~/.claude/utility-system/configure.sh'"
 for rc in "$HOME/.zshrc" "$HOME/.bashrc"; do

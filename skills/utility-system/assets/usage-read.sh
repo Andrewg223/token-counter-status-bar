@@ -19,12 +19,15 @@ files=("$DIR"/*.json)
 [ ${#files[@]} -eq 0 ] && { echo "$EMPTY"; exit 0; }
 
 jq -s '
-  def pick(p):
-    [ .[] | select(.[p] != null) ]
+  # Only consider readings whose window has NOT reset yet (resets_at in the future);
+  # a past reset means a stale window an idle session re-reported. Among the valid
+  # current-window readings, take the freshest write.
+  def pick(p; r):
+    [ .[] | select(.[p] != null) | select((.[r] // 0) > now) ]
     | sort_by(.written_at // 0)
     | last;
-  (pick("session_pct")) as $s |
-  (pick("weekly_pct"))  as $w |
+  (pick("session_pct"; "session_resets_at")) as $s |
+  (pick("weekly_pct";  "weekly_resets_at"))  as $w |
   {
     session_pct:        ($s.session_pct        // null),
     session_resets_at:  ($s.session_resets_at  // null),

@@ -41,9 +41,9 @@ cp -R skills/utility-system ~/.claude/skills/
 ~/.claude/skills/utility-system/assets/install.sh
 ```
 
-Then run **`cus`** in a new shell to open the configurator: arrow keys move, **space** toggles or cycles the layout, live preview, **s** save, **q** quit. Requires `jq`; macOS for the notifier.
+Then open the admin panel by typing **`! cus`** in the Claude prompt (the `!` runs it in your real terminal, then returns to Claude on exit). `/utility-system` is a slash command that reminds you of this. In the panel: arrow keys move, **space** toggles or cycles the layout, live preview, **s** save, **Esc**/**q** to return. Requires `jq`; macOS for the notifier.
 
-You can also tell Claude "open my status bar configurator" or "turn on the git panel" — the [`utility-system` skill](skills/utility-system/SKILL.md) handles it.
+A plain slash command can't take over the terminal (it only prompts Claude), so the interactive panel launches via the `!` bang-prefix.
 
 ## How it stays cheap
 
