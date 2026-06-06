@@ -2,6 +2,10 @@
 
 A modular utility layer for the Claude Code terminal — a **status bar built from toggleable panels** plus a few **settings features**, all managed from one **visual in-terminal app**. The repo is the system; each panel and feature is a part you switch on or off.
 
+![Claude Utility System status bar](assets/statusbar.png)
+
+The configurator — toggle panels and features, with a live preview:
+
 ```
  Claude Utility System   configure your terminal status bar
 
