@@ -29,8 +29,8 @@ colctx() { local p=$1; if [ "$p" -ge 90 ]; then printf '\033[31m'; else printf '
 int() { printf '%.0f' "${1:-0}" 2>/dev/null || echo 0; }
 # format a token count like the native counter: 413100 -> 413.1k, 257000 -> 257k, 1000000 -> 1M
 fmtk() { local n=${1:-0} u d
-  if [ "$n" -ge 1000000 ]; then u=$((n/1000000)); d=$(((n%1000000)/100000)); [ "$d" -eq 0 ] && printf '%dM' "$u" || printf '%d.%dM' "$u" "$d"
-  elif [ "$n" -ge 1000 ]; then u=$((n/1000)); d=$(((n%1000)/100)); [ "$d" -eq 0 ] && printf '%dk' "$u" || printf '%d.%dk' "$u" "$d"
+  if [ "$n" -ge 1000000 ]; then u=$((n/1000000)); d=$(( (n%1000000 + 50000)/100000 )); [ "$d" -ge 10 ] && { u=$((u+1)); d=0; }; [ "$d" -eq 0 ] && printf '%dM' "$u" || printf '%d.%dM' "$u" "$d"
+  elif [ "$n" -ge 1000 ]; then u=$((n/1000)); d=$(( (n%1000 + 50)/100 )); [ "$d" -ge 10 ] && { u=$((u+1)); d=0; }; [ "$d" -eq 0 ] && printf '%dk' "$u" || printf '%d.%dk' "$u" "$d"
   else printf '%d' "$n"; fi; }
 
 # ---------- panel: plan usage (account-wide, shared-cache, low-CPU) ----------
@@ -71,16 +71,17 @@ panel_usage() {
 
 # ---------- panel: context window (per session) ----------
 panel_context() {
-  # Token count matches Claude's native "/clear to save N tokens" footer = input + output.
-  # Percentage uses Claude's own context % (used_percentage, input-only) so the bar matches /context.
-  local M IN OUT S UP; IFS=$'\t' read -r M IN OUT S UP < <(printf '%s' "$input" | jq -r \
-    '[.model.display_name//"?", (.context_window.total_input_tokens//-1), (.context_window.total_output_tokens//0), (.context_window.context_window_size//200000), (.context_window.used_percentage//-1)] | @tsv')
+  # Matches Claude's native context counter exactly: the count is total_input_tokens
+  # (input + cache reads/writes) — precisely what used_percentage is computed from.
+  # Output tokens are NOT part of the context-window "used" figure.
+  local M IN S UP; IFS=$'\t' read -r M IN S UP < <(printf '%s' "$input" | jq -r \
+    '[.model.display_name//"?", (.context_window.total_input_tokens//-1), (.context_window.context_window_size//200000), (.context_window.used_percentage//-1)] | @tsv')
   [ -z "$IN" ] || [ "$IN" = "-1" ] && return
   [ "$S" -le 0 ] && S=200000
-  local total=$((IN + OUT)) p
-  if [ -n "$UP" ] && [ "$UP" != "-1" ]; then p=$(int "$UP"); else p=$(( total * 100 / S )); fi
+  local p
+  if [ -n "$UP" ] && [ "$UP" != "-1" ]; then p=$(int "$UP"); else p=$(( IN * 100 / S )); fi
   [ "$p" -gt 100 ] && p=100; [ "$p" -lt 0 ] && p=0
-  local used sz; used=$(fmtk "$total"); sz=$(fmtk "$S")
+  local used sz; used=$(fmtk "$IN"); sz=$(fmtk "$S")
   add "$(printf 'CONTEXT %b%s\033[0m %d%% \033[90m%s/%s\033[0m' "$(colctx $p)" "$(mkbar $p)" "$p" "$used" "$sz")" "CONTEXT $PLAINBAR $p% $used/$sz"
 }
 
