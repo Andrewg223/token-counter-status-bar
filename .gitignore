@@ -3,3 +3,8 @@
 
 # APPS PM-system artifacts (auto-injected by the library watcher) — keep them out of the public repo
 index.md
+
+# internal PM chat records — not part of the shareable repo
+# (brackets are a glob char-class in gitignore, so escape them to match the literal folder)
+\[CHAT\]/
+\[CHATS\]/
