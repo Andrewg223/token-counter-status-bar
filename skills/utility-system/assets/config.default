@@ -1,0 +1,22 @@
+# Claude Utility System — configuration.
+# Edit by hand, or run the configurator:  cus   (opens the visual panel app)
+#
+# Status-bar panels (on / off). Each enabled panel becomes a module in the bar.
+PANEL_USAGE=on        # plan usage: 5h session + weekly (All Models) limits
+PANEL_CONTEXT=on      # context-window fill for this session
+PANEL_COST=off        # session cost estimate + elapsed time
+PANEL_GIT=off         # git branch, staged/modified counts, open PR
+
+# Layout:
+#   auto  = one row, wraps to stacked rows when the terminal is too narrow
+#   row   = always one row
+#   stack = always one panel per row
+LAYOUT=auto
+
+# Desktop notifications on run-finished / needs-input (macOS). on / off.
+# (Toggling this rewrites the Stop + Notification hooks in settings.json.)
+NOTIFIER=off
+
+# Settings-based extra features (synced into settings.json on save):
+SUBAGENT=off          # custom rows in the subagent panel (subagentStatusLine)
+SAFEBASH=off          # auto-allow read-only Bash (ls, cat, grep, git diff, ...)

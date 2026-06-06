@@ -1,61 +1,57 @@
-# Andrew's System Skills
+# Claude Utility System
 
-Claude Code skills about **how you work with Claude Code itself** — the system, the harness, the ergonomics. Not what you build with it.
+A modular utility layer for the Claude Code terminal — a **status bar built from toggleable panels** plus a few **settings features**, all managed from one **visual in-terminal app**. The repo is the system; each panel and feature is a part you switch on or off.
 
-A *system skill* changes or extends the tool: the status line, settings, hooks, the terminal experience, session plumbing. It is general (it works for anyone) and self-contained (drop it in and it runs). These are meant to be shared.
+```
+ Claude Utility System   configure your terminal status bar
 
-## The line — what belongs here, what doesn't
+  > [x]  Plan usage     5h session + weekly (All Models) limits
+    [x]  Context        context-window fill for this session
+    [ ]  Cost           session cost estimate + elapsed time
+    [ ]  Git            branch, staged/modified, open PR
+    [ auto ] Layout     auto = one row, wraps when narrow
+    [ ]  Notifications  desktop ping on done / needs-input (macOS)
+    [ ]  Subagent rows  custom rows in the subagent panel
+    [ ]  Auto-allow Bash stop prompting for read-only commands
 
-**Belongs (system level):**
-- Status lines and meters (plan usage, context, cost, git state)
-- Settings, permissions, and hook patterns
-- Terminal/session ergonomics and display
-- Anything about operating Claude Code better, independent of the work
+ Preview
+  USAGE ▓▓▓▓░░░░░░ 47% 2h13m   WEEK ▓▓░░░░░░░░ 24% Fri 13:00   CTX ▓▓▓░░░ 32% 64k/200k
+```
 
-**Does NOT belong (the antipattern):**
-- Content or copy generation (writing, design, marketing)
-- Domain or work-process skills (a project's pipeline, a client's workflow, a PM system)
-- Anything that only makes sense inside one person's specific projects
+## Parts of the system
 
-The test: *drop the skill into a stranger's Claude Code with none of your projects or files. Does it still do something useful?* If yes, it's a system skill and it belongs here. If it needs your content, your clients, or your workflow to mean anything, it's a work skill — keep it elsewhere.
+**Status-bar panels** — compose into one responsive bar (one row, wraps to stacked rows when narrow):
+- **Plan usage** — 5h session + weekly (All-Models) limits, coloured bars + reset times, synced to one value across every terminal at near-zero CPU.
+- **Context** — context-window fill for the session.
+- **Cost** — session cost estimate + elapsed time.
+- **Git** — branch, staged/modified counts, open PR + review state.
 
-## Skills
+**Settings features** — synced into `settings.json` (your other settings preserved):
+- **Notifications** — macOS desktop ping when a run finishes or needs input.
+- **Subagent rows** — custom formatting for the subagent panel.
+- **Auto-allow Bash** — a conservative read-only allowlist so routine commands stop prompting.
 
-**Status lines** (Claude Code runs one at a time — see *Composing* below):
-- **[plan-usage-statusline](skills/plan-usage-statusline/)** — plan usage: 5-hour session + weekly (All-Models) as coloured bars with reset times, on one row that wraps to two when narrow. Synced to one value across all terminals at near-zero CPU. `SESSION ▓▓▓▓░░░░░░ 42% 2h13m   WEEKLY ▓▓░░░░░░░░ 24% Fri 13:00`
-- **[context-meter](skills/context-meter/)** — context-window bar, percentage, and tokens used vs window size. `[Opus] ctx ▓▓▓░░░░░░░ 32% 64k/200k`
-- **[cost-and-duration](skills/cost-and-duration/)** — session cost estimate, wall-clock + API time, lines changed. `[Opus] $0.42  12m04s  api 2m10s  +156 -23`
-- **[git-and-pr-state](skills/git-and-pr-state/)** — branch, staged/modified counts, open PR + review state (git calls cached 3s). `[Opus] main +2 ~5  PR #1234 (approved)`
-
-**Patterns:**
-- **[low-cpu-statusline-pattern](skills/low-cpu-statusline-pattern/)** — the "one session computes a shared value, every other terminal just reads it" recipe + a fill-in template. Use when a status line needs shared or expensive data; avoids the fork/exec storm that pins `sysmond` and lags typing.
-
-**Hooks & notifications:**
-- **[done-and-input-notifier](skills/done-and-input-notifier/)** — Stop + Notification hooks that fire a macOS desktop notification when a run finishes or needs your input.
-
-**Permissions:**
-- **[auto-allow-safe-bash](skills/auto-allow-safe-bash/)** — a conservative read-only Bash allowlist to stop prompting for `ls`, `git diff`, etc. Read-only only; nothing that writes or hits the network.
-
-**Ergonomics:**
-- **[session-namer](skills/session-namer/)** — a shell function that launches Claude with a session name from the folder + time, so multiple sessions are easy to tell apart.
-- **[subagent-statusline](skills/subagent-statusline/)** — custom rows for the subagent panel (label, type, token count); composes with any status line.
-
-## Composing status lines
-
-Claude Code runs **one** `statusLine` command. The status-line skills above are drop-in alternatives — install one, or compose several by writing a wrapper that feeds the same JSON (`input=$(cat)`) to each segment and joins the output, or by printing multiple lines (each `echo`/`printf` line is a row). `subagent-statusline` is separate (`subagentStatusLine`) and always composes.
+**Extra:** a `session-namer` alias to launch Claude with a folder-derived session name.
 
 ## Install
 
-Copy a skill folder into your skills directory:
-
 ```sh
-cp -R skills/plan-usage-statusline ~/.claude/skills/
+cp -R skills/utility-system ~/.claude/skills/
+~/.claude/skills/utility-system/assets/install.sh
 ```
 
-Then follow that skill's `SKILL.md` for any extra setup (the status line skill also drops two scripts into `~/.claude/` and adds one entry to `settings.json`).
+Then run **`cus`** in a new shell to open the configurator: arrow keys move, **space** toggles or cycles the layout, live preview, **s** save, **q** quit. Requires `jq`; macOS for the notifier.
 
-Each skill is self-contained under `skills/<name>/` — a `SKILL.md` plus its scripts/assets.
+You can also tell Claude "open my status bar configurator" or "turn on the git panel" — the [`utility-system` skill](skills/utility-system/SKILL.md) handles it.
+
+## How it stays cheap
+
+Opening more terminals doesn't multiply work. The account-wide usage panel uses a shared cache — one session computes the value, the rest just read it; a normal render spawns only `date`/`stat`, no `jq`. This avoids the fork/exec storm that pins macOS `sysmond` when a heavy status line refreshes every second in every window. Per-session panels read this session's JSON directly.
+
+## Scope — system, not content
+
+This is a **system** tool: how you operate Claude Code (status bar, settings, notifications, ergonomics). It deliberately contains **no** content generation, domain, or work-process logic. The test: *drop it into a stranger's Claude Code with none of your projects — does it still work?* Yes. That's the line.
 
 ## License
 
-MIT. The structure is free to copy, fork, and adapt.
+MIT. Free to copy, fork, and adapt.
