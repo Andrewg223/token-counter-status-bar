@@ -1,9 +1,9 @@
 #!/bin/bash
 # Aggregate every session's snapshot in ~/.claude/status-bar/usage/*.json into ONE
-# authoritative reading. Account-wide usage only CLIMBS within a window, so the truth is
-# the HIGHEST used_percentage among readings whose window has not reset yet (resets_at in
-# the future). Highest-wins is deterministic (every window computes the same value, no
-# flicker) and a stale low snapshot an idle session re-reports can never win.
+# authoritative reading. The NEWEST window wins (latest resets_at): an idle session
+# re-reports the cached rate_limits of an OLD window, and that window's resets_at can
+# still be in the future, so window recency — not magnitude — separates live from stale.
+# Within the same window usage only CLIMBS, so the HIGHEST used_percentage is current.
 #
 # ONE jq call. No per-file validation: writers use "<id>.json.tmp.$$" + atomic
 # mv, and that tmp suffix doesn't match *.json, so readers never see a partial
@@ -19,13 +19,14 @@ files=("$DIR"/*.json)
 [ ${#files[@]} -eq 0 ] && { echo "$EMPTY"; exit 0; }
 
 jq -s '
-  # Consider only readings whose window has NOT reset yet (resets_at in the future) — a
-  # past reset is a stale window an idle session re-reported. Usage only climbs within a
-  # window, so the HIGHEST percentage is the current value (newest write breaks ties).
-  # Highest-wins is immune to an idle session re-stamping an old snapshot as "fresh".
+  # Consider only readings whose window has NOT reset yet (resets_at in the future).
+  # Sort by window recency FIRST: a cached payload from an idle session belongs to an
+  # older window (smaller resets_at) and must lose to any reading from the live window,
+  # even if its percentage is higher. Within the same window usage only climbs, so the
+  # HIGHEST percentage is the current value (newest write breaks ties).
   def pick(p; r):
     [ .[] | select(.[p] != null) | select((.[r] // 0) > now) ]
-    | sort_by([.[p], (.written_at // 0)])
+    | sort_by([.[r], .[p], (.written_at // 0)])
     | last;
   (pick("session_pct"; "session_resets_at")) as $s |
   (pick("weekly_pct";  "weekly_resets_at"))  as $w |
