@@ -57,6 +57,8 @@ The installer also adds a small marked block to your **`~/CLAUDE.md`**, so from 
 
 Opening more terminals doesn't multiply work. The account-wide usage panel uses a shared cache — one session computes the value, the rest just read it; a normal render spawns only `date`/`stat`, no `jq`. This avoids the fork/exec storm that pins macOS `sysmond` when a heavy status line refreshes every second in every window. Per-session panels read this session's JSON directly.
 
+Cheap doesn't mean stale: each window also overlays its **own live reading** from the current tick (extracted with bash regex, still no `jq`), so the window you're actively working in never trails the cache — the cache only fills in for idle windows.
+
 ## Scope — system, not content
 
 This is a **system** tool: how you operate Claude Code (status bar, settings, notifications, ergonomics). It deliberately contains **no** content generation, domain, or work-process logic. The test: *drop it into a stranger's Claude Code with none of your projects — does it still work?* Yes. That's the line.

@@ -63,6 +63,8 @@ The installer deploys the runtime to `~/.claude/status-bar/`, writes a default c
 
 Adding terminals doesn't multiply work. The account-wide usage panel uses a shared cache: one session computes the synced value, every other terminal just reads it; a normal render tick spawns only `date`/`stat`, no `jq`. (This avoids the fork/exec storm that pins macOS `sysmond` when a heavy status line refreshes every second in every window.) Per-session panels (context, cost, git) read this session's JSON directly. The bar composes only the panels you enabled, on one row that wraps to stacked rows when the terminal is narrow.
 
+Cheap doesn't mean stale: each window also overlays its own live reading from the current tick (bash regex, still no `jq`), so the active window never trails the cache — the cache fills in for idle windows.
+
 ## Files (`assets/`)
 
 - `statusbar.sh` — the status line: renders enabled panels, composes layout.

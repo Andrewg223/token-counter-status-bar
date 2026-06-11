@@ -60,6 +60,27 @@ panel_usage() {
     if [ -n "$WR" ]; then if [ "$WR" -le "$now" ] 2>/dev/null; then WSTR=now; else WSTR=$(date -r "$WR" '+%a %H:%M'); fi; else WSTR=""; fi
     printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$now" "$SP" "$SR" "$WP" "$WR" "$WSTR" > "$C.tmp.$$" && mv -f "$C.tmp.$$" "$C"
   fi
+  # Live overlay: this tick's input JSON came straight from an API response, so for
+  # THIS window it can be fresher than the shared cache (which trails by up to the
+  # write throttle + cache TTL — the "always 2-3% behind" lag in the active window).
+  # Apply the aggregator's own pick rule against the cached value: newer window
+  # (later resets_at) wins; within the same window the higher percentage wins.
+  # Bash regex, so a normal tick still forks no jq.
+  local OP OR
+  if [[ "$input" =~ \"five_hour\"[^}]*\"used_percentage\"[[:space:]]*:[[:space:]]*([0-9.]+) ]]; then
+    OP="${BASH_REMATCH[1]}"; OR=""
+    [[ "$input" =~ \"five_hour\"[^}]*\"resets_at\"[[:space:]]*:[[:space:]]*([0-9]+) ]] && OR="${BASH_REMATCH[1]}"
+    if [ -n "$OR" ] && [ "$OR" -gt "$now" ]; then
+      if [ "$OR" -gt "${SR:-0}" ] || { [ "$OR" -eq "${SR:-0}" ] && [ "$(int "$OP")" -gt "$(int "${SP:-0}")" ]; }; then SP="$OP"; SR="$OR"; fi
+    fi
+  fi
+  if [[ "$input" =~ \"seven_day\"[^}]*\"used_percentage\"[[:space:]]*:[[:space:]]*([0-9.]+) ]]; then
+    OP="${BASH_REMATCH[1]}"; OR=""
+    [[ "$input" =~ \"seven_day\"[^}]*\"resets_at\"[[:space:]]*:[[:space:]]*([0-9]+) ]] && OR="${BASH_REMATCH[1]}"
+    if [ -n "$OR" ] && [ "$OR" -gt "$now" ]; then
+      if [ "$OR" -gt "${WR:-0}" ] || { [ "$OR" -eq "${WR:-0}" ] && [ "$(int "$OP")" -gt "$(int "${WP:-0}")" ]; }; then WP="$OP"; WR="$OR"; WSTR=$(date -r "$WR" '+%a %H:%M'); fi
+    fi
+  fi
   if [ -n "$SP" ]; then local p rs="" d; p=$(int "$SP")
     if [ -n "$SR" ]; then d=$((SR - now)); if [ $d -le 0 ]; then rs=now; else rs="$((d/3600))h$(((d%3600)/60))m"; fi; fi
     add "$(printf 'SESSION %b%s\033[0m %d%% \033[90m%s\033[0m' "$(colpct $p)" "$(mkbar $p)" "$p" "$rs")" "SESSION $PLAINBAR $p% $rs"
