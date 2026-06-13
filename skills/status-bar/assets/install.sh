@@ -59,8 +59,10 @@ for f in statusbar.sh sync-settings.sh notify.sh subagent-statusline.sh; do
 done
 chmod +x "$DIR"/*.sh
 [ -f "$DIR/config" ] || cp "$SRC/config.default" "$DIR/config"
-# retire the old cross-window aggregator + its cache (usage is now read per-session, no jq)
-rm -f "$DIR/usage-read.sh" "$DIR/usage-synced" "$DIR"/usage/*.json 2>/dev/null
+# retire superseded usage machinery: the old aggregator + cache, and the short-lived
+# per-session files. Usage is now ONE shared SSOT file ($DIR/usage-ssot), kept here.
+rm -f "$DIR/usage-read.sh" "$DIR/usage-synced" "$DIR"/usage/*.tsv "$DIR"/usage/*.json 2>/dev/null
+rmdir "$DIR/usage" 2>/dev/null || true
 
 # wire settings.json (status line + notifier/subagent/safebash per config)
 "$DIR/sync-settings.sh"

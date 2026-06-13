@@ -59,11 +59,11 @@ The installer deploys the runtime to `~/.claude/status-bar/`, writes a default c
 1. Make sure it's installed (run `assets/install.sh` if `~/.claude/status-bar/` is missing — this also adds the toggle instructions to `~/CLAUDE.md`).
 2. To change which functions show, edit `~/.claude/status-bar/config` directly (e.g. `PANEL_GIT=on`) — don't ask, there's no popup. Panel changes apply on the next refresh; after changing NOTIFIER / SUBAGENT / SAFEBASH also run `~/.claude/status-bar/sync-settings.sh`.
 
-## How it stays cheap
+## How it stays cheap — and in sync
 
-Adding terminals doesn't multiply work. The usage panel reads each session's own `rate_limits` — the figure Claude Code already pulled from the server and put in this render's input — with plain bash (no `jq`, no cross-window aggregation). A normal render tick spawns only `date`/`stat`. (This avoids the fork/exec storm that pins macOS `sysmond` when a heavy status line refreshes every second in every window.) The other panels (context, cost, git) likewise read this session's input directly. The bar composes only the panels you enabled, on one row that wraps to stacked rows when the terminal is narrow.
+The 5h + weekly numbers are account-wide, so every terminal shares **one** file (`~/.claude/status-bar/usage-ssot`): each window merges its own reading (the `rate_limits` Claude Code puts in that render — the server's figure, the same `/usage` shows) into it and displays it. Switch windows and the number is identical; an idle window shows the shared value, not a stale one of its own. Plain bash — no `jq`, no per-window scanning — so a tick spawns only `date`/`stat` (avoiding the fork/exec storm that pins macOS `sysmond`). Context, cost and git stay per-session. The bar composes only the panels you enabled, on one row that wraps when narrow.
 
-Accurate, not guessed: because each session shows the server's own number verbatim, a limit reset can't desync the bar — there's no shared cache holding a stale value to disagree with it. An idle render (no `rate_limits` that tick) shows that session's last real reading until its next turn.
+Correct on resets, by construction: the shared value is the reading from the newest window (latest `resets_at`) and, within it, the highest percent — provably current, since `resets_at` only moves forward (a reset wins the instant any window sees it) and usage only climbs within a window. No wall-clock anywhere, so an idle window re-emitting an old reading can't "refresh" a stale number.
 
 ## Files (`assets/`)
 

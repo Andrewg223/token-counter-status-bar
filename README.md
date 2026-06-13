@@ -53,11 +53,11 @@ The installer also adds a small marked block to your **`~/CLAUDE.md`**, so from 
 
 **Why ask the chat instead of a popup:** Claude Code can't open an interactive popup for this — a custom `/command` always goes through the model, native dialogs aren't user-extensible, and the status line is display-only (it can't be made into a clickable/keyboard menu). So the chat *is* the control surface: the hardwired `~/CLAUDE.md` block makes "ask the chat" reliable, and the config file is always there as the plain edit-and-save fallback.
 
-## How it stays cheap
+## How it stays cheap — and in sync
 
-Opening more terminals doesn't multiply work. The usage panel reads each session's own `rate_limits` — the figure Claude Code already pulled from the server and put in this render's input — with plain bash (no `jq`, no cross-window aggregation). A normal render spawns only `date`/`stat`. This avoids the fork/exec storm that pins macOS `sysmond` when a heavy status line refreshes every second in every window. The other panels read this session's input directly too.
+The 5h + weekly numbers are account-wide — one true value for the whole account — so every terminal shares **one** file (`~/.claude/status-bar/usage-ssot`). Each window merges its own reading (the `rate_limits` Claude Code puts in that render — the server's figure, the same `/usage` shows) into that file and displays it. Switch windows and the number is identical; a window that's behind shows what another just published; an idle window shows the shared value, not a stale one of its own. Extraction is plain bash — no `jq`, no per-window scanning — so a render spawns only `date`/`stat`, avoiding the fork/exec storm that pins macOS `sysmond`. Context, cost and git stay per-session. (Cross-window propagation is one refresh tick; the status line refreshes every 3s.)
 
-**Accurate, not guessed.** Each session shows the server's own number verbatim, so a limit reset can't desync the bar — there's no shared cache holding a stale value to disagree with it. The window you're working in is always the server's current figure for that session; an idle window shows its last real reading until its next turn. (Making an *idle* window update in real time would require an independent authenticated pull from Anthropic's usage endpoint — possible, but it needs access to your Claude Code auth token.)
+**Correct on resets, by construction.** The shared value is the reading from the newest window (latest `resets_at`) and, within it, the highest percent — provably the current usage: a window's `resets_at` only moves forward, so a reset is reflected the instant any window observes it; within a window, usage only climbs. No wall-clock is used anywhere, so an idle window re-emitting an old reading can't "refresh" a stale number — the bug that broke the first cross-window attempt.
 
 ## Scope — system, not content
 

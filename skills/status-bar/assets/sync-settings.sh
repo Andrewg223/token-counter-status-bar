@@ -27,7 +27,9 @@ jq \
     (((.hooks // []) | map(.command) | join(" "))) | contains("status-bar/notify.sh") | not));
 
   # --- status line (always ours) ---
-  .statusLine = {type:"command", command:$sl, refreshInterval:10}
+  # 3s: cross-window usage sync propagates within one refresh, and renders are cheap
+  # (the usage panel forks no jq). Raise it to lower CPU if you ever need to.
+  .statusLine = {type:"command", command:$sl, refreshInterval:3}
 
   # --- notifier hooks ---
   | .hooks = (.hooks // {})
