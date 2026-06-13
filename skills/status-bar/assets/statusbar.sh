@@ -15,6 +15,12 @@ FILL=$(printf '\342\226\223'); EMP=$(printf '\342\226\221')
 PLAINBAR="##########"        # ASCII twin of a 10-cell bar, for width math
 SEGS=(); PLAINS=()
 
+# Session id, parsed once — used by the usage panel and by sticky billing detection.
+SID="unknown"
+[[ "$input" =~ \"session_id\"[[:space:]]*:[[:space:]]*\"([^\"]+)\" ]] && SID="${BASH_REMATCH[1]}"
+SID="${SID//[^A-Za-z0-9_.-]/_}"
+USAGE_TSV="$DIR/usage/$SID.tsv"
+
 add() { SEGS+=("$1"); PLAINS+=("$2"); }   # $1 = coloured segment, $2 = plain ASCII twin (for width)
 
 mkbar() { local p=$1 f e i b=""; [ "$p" -gt 100 ] && p=100; [ "$p" -lt 0 ] && p=0
@@ -33,59 +39,47 @@ fmtk() { local n=${1:-0} u d
   elif [ "$n" -ge 1000 ]; then u=$((n/1000)); d=$(( (n%1000 + 50)/100 )); [ "$d" -ge 10 ] && { u=$((u+1)); d=0; }; [ "$d" -eq 0 ] && printf '%dk' "$u" || printf '%d.%dk' "$u" "$d"
   else printf '%d' "$n"; fi; }
 
-# ---------- panel: plan usage (account-wide, shared-cache, low-CPU) ----------
+# ---------- panel: plan usage (trust the server's own figure, no guessing) ----------
+# Source of truth = the rate_limits block Claude Code puts in THIS render's input JSON.
+# That is Claude Code's own real-time, server-derived figure for this session — the same
+# number /usage shows. We display it verbatim: no cross-window aggregation, no "pick a
+# winner" heuristic. That is what makes it survive a limit reset — when Anthropic rolls
+# the window, the next render after a turn just carries the server's new percent/reset and
+# we show it; there is no stale-file cache to disagree with it. Each session remembers only
+# ITS OWN last reading (for an idle render that arrives with no rate_limits); we never
+# borrow another window's number. Pure bash extraction, so a normal tick forks no jq.
 panel_usage() {
   mkdir -p "$DIR/usage"
-  local SID="unknown"
-  [[ "$input" =~ \"session_id\"[[:space:]]*:[[:space:]]*\"([^\"]+)\" ]] && SID="${BASH_REMATCH[1]}"
-  SID="${SID//[^A-Za-z0-9_.-]/_}"
-  local OWN="$DIR/usage/$SID.json" om
-  om=$(stat -f %m "$OWN" 2>/dev/null || echo 0)
-  # Only record when this tick actually carries rate_limits (a real observation),
-  # so written_at always means "freshly seen" — never a stale value re-stamped.
-  if [[ "$input" == *'"rate_limits"'* ]] && [ $((now - om)) -ge 5 ]; then
-    local OLD; OLD=$(jq -c . "$OWN" 2>/dev/null || echo '{}')
-    if printf '%s' "$input" | jq --argjson old "$OLD" '{
-        session_pct:(.rate_limits.five_hour.used_percentage//$old.session_pct//null),
-        session_resets_at:(.rate_limits.five_hour.resets_at//$old.session_resets_at//null),
-        weekly_pct:(.rate_limits.seven_day.used_percentage//$old.weekly_pct//null),
-        weekly_resets_at:(.rate_limits.seven_day.resets_at//$old.weekly_resets_at//null),
-        written_at:(now|floor)}' > "$OWN.tmp.$$" 2>/dev/null; then mv -f "$OWN.tmp.$$" "$OWN"; else rm -f "$OWN.tmp.$$"; fi
-  fi
-  local C="$DIR/usage-synced" cts=0 SP="" SR="" WP="" WR="" WSTR=""
-  [ -r "$C" ] && IFS=$'\t' read -r cts SP SR WP WR WSTR < "$C"; cts=${cts:-0}
-  if [ ! -r "$C" ] || [ $((now - cts)) -ge 8 ]; then
-    read -r SP SR WP WR < <("$DIR/usage-read.sh" | jq -r '[(.session_pct//""),(.session_resets_at//""),(.weekly_pct//""),(.weekly_resets_at//"")]|@tsv')
-    find "$DIR/usage" -name '*.json' -mmin +720 -delete 2>/dev/null
-    if [ -n "$WR" ]; then if [ "$WR" -le "$now" ] 2>/dev/null; then WSTR=now; else WSTR=$(date -r "$WR" '+%a %H:%M'); fi; else WSTR=""; fi
-    printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$now" "$SP" "$SR" "$WP" "$WR" "$WSTR" > "$C.tmp.$$" && mv -f "$C.tmp.$$" "$C"
-  fi
-  # Live overlay: this tick's input JSON came straight from an API response, so for
-  # THIS window it can be fresher than the shared cache (which trails by up to the
-  # write throttle + cache TTL — the "always 2-3% behind" lag in the active window).
-  # Apply the aggregator's own pick rule against the cached value: newer window
-  # (later resets_at) wins; within the same window the higher percentage wins.
-  # Bash regex, so a normal tick still forks no jq.
-  local OP OR
-  if [[ "$input" =~ \"five_hour\"[^}]*\"used_percentage\"[[:space:]]*:[[:space:]]*([0-9.]+) ]]; then
-    OP="${BASH_REMATCH[1]}"; OR=""
-    [[ "$input" =~ \"five_hour\"[^}]*\"resets_at\"[[:space:]]*:[[:space:]]*([0-9]+) ]] && OR="${BASH_REMATCH[1]}"
-    if [ -n "$OR" ] && [ "$OR" -gt "$now" ]; then
-      if [ "$OR" -gt "${SR:-0}" ] || { [ "$OR" -eq "${SR:-0}" ] && [ "$(int "$OP")" -gt "$(int "${SP:-0}")" ]; }; then SP="$OP"; SR="$OR"; fi
+  local OWN="$USAGE_TSV"
+  local SP="" SR="" WP="" WR=""
+
+  if [[ "$input" == *'"rate_limits"'* ]]; then
+    # five_hour = the 5h session window; seven_day = the weekly window. Each field read
+    # independently (robust to key order / added fields). Floats like 28.999 are fine.
+    [[ "$input" =~ \"five_hour\"[^}]*\"used_percentage\"[[:space:]]*:[[:space:]]*([0-9.]+) ]] && SP="${BASH_REMATCH[1]}"
+    [[ "$input" =~ \"five_hour\"[^}]*\"resets_at\"[[:space:]]*:[[:space:]]*([0-9]+) ]] && SR="${BASH_REMATCH[1]}"
+    [[ "$input" =~ \"seven_day\"[^}]*\"used_percentage\"[[:space:]]*:[[:space:]]*([0-9.]+) ]] && WP="${BASH_REMATCH[1]}"
+    [[ "$input" =~ \"seven_day\"[^}]*\"resets_at\"[[:space:]]*:[[:space:]]*([0-9]+) ]] && WR="${BASH_REMATCH[1]}"
+    # remember this session's own reading (throttled), TSV, no jq
+    local om; om=$(stat -f %m "$OWN" 2>/dev/null || echo 0)
+    if [ -n "$SP" ] && [ $((now - om)) -ge 5 ]; then
+      printf '%s\t%s\t%s\t%s\t%s\n' "$SP" "$SR" "$WP" "$WR" "$now" > "$OWN.tmp.$$" && mv -f "$OWN.tmp.$$" "$OWN"
+      [ "$om" = 0 ] && find "$DIR/usage" \( -name '*.tsv' -o -name '*.json' \) -mmin +1440 -delete 2>/dev/null
     fi
   fi
-  if [[ "$input" =~ \"seven_day\"[^}]*\"used_percentage\"[[:space:]]*:[[:space:]]*([0-9.]+) ]]; then
-    OP="${BASH_REMATCH[1]}"; OR=""
-    [[ "$input" =~ \"seven_day\"[^}]*\"resets_at\"[[:space:]]*:[[:space:]]*([0-9]+) ]] && OR="${BASH_REMATCH[1]}"
-    if [ -n "$OR" ] && [ "$OR" -gt "$now" ]; then
-      if [ "$OR" -gt "${WR:-0}" ] || { [ "$OR" -eq "${WR:-0}" ] && [ "$(int "$OP")" -gt "$(int "${WP:-0}")" ]; }; then WP="$OP"; WR="$OR"; WSTR=$(date -r "$WR" '+%a %H:%M'); fi
-    fi
+
+  # Idle render (this tick carried no rate_limits): show THIS session's own last reading,
+  # never another window's. So an unused window shows its last real value, not a guess.
+  if [ -z "$SP" ] && [ -r "$OWN" ]; then
+    local _w; IFS=$'\t' read -r SP SR WP WR _w < "$OWN"
   fi
+
   if [ -n "$SP" ]; then local p rs="" d; p=$(int "$SP")
     if [ -n "$SR" ]; then d=$((SR - now)); if [ $d -le 0 ]; then rs=now; else rs="$((d/3600))h$(((d%3600)/60))m"; fi; fi
     add "$(printf 'SESSION %b%s\033[0m %d%% \033[90m%s\033[0m' "$(colpct $p)" "$(mkbar $p)" "$p" "$rs")" "SESSION $PLAINBAR $p% $rs"
   fi
-  if [ -n "$WP" ]; then local p; p=$(int "$WP")
+  if [ -n "$WP" ]; then local p WSTR=""; p=$(int "$WP")
+    if [ -n "$WR" ]; then if [ "$WR" -le "$now" ] 2>/dev/null; then WSTR=now; else WSTR=$(date -r "$WR" '+%a %H:%M'); fi; fi
     add "$(printf 'WEEK %b%s\033[0m %d%% \033[90m%s\033[0m' "$(colpct $p)" "$(mkbar $p)" "$p" "$WSTR")" "WEEK $PLAINBAR $p% $WSTR"
   fi
 }
@@ -154,7 +148,15 @@ panel_menu() {
 # Billing-aware: a Pro/Max subscription exposes rate_limits and is bounded by usage
 # limits (not $); API/pay-per-use has no rate_limits and is billed by $ cost. Show
 # only what's relevant to the current chat's billing mode.
-case "$input" in *'"rate_limits"'*) SUB=1;; *) SUB=0;; esac
+#
+# STICKY: not every render carries rate_limits (an idle tick between turns may omit it),
+# but billing mode doesn't change mid-session. So a session is a subscription if THIS
+# render has rate_limits OR it has shown them before (its usage .tsv exists). Without
+# this, an idle render would flip a subscriber to "API mode" — usage vanishing and cost
+# flashing in. An API session never sees rate_limits and never writes a .tsv → SUB=0.
+if [[ "$input" == *'"rate_limits"'* ]] || [ -r "$USAGE_TSV" ]; then SUB=1
+elif compgen -G "$DIR/usage/*.tsv" >/dev/null 2>&1; then SUB=1   # cold start on a subscription machine (some session has usage history) — don't flash the cost panel before this session's first turn
+else SUB=0; fi
 
 [ "$PANEL_USAGE" = on ] && [ "$SUB" = 1 ] && panel_usage     # usage limits: subscription only
 [ "$PANEL_CONTEXT" = on ] && panel_context

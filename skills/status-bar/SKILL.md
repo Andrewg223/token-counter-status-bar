@@ -61,14 +61,13 @@ The installer deploys the runtime to `~/.claude/status-bar/`, writes a default c
 
 ## How it stays cheap
 
-Adding terminals doesn't multiply work. The account-wide usage panel uses a shared cache: one session computes the synced value, every other terminal just reads it; a normal render tick spawns only `date`/`stat`, no `jq`. (This avoids the fork/exec storm that pins macOS `sysmond` when a heavy status line refreshes every second in every window.) Per-session panels (context, cost, git) read this session's JSON directly. The bar composes only the panels you enabled, on one row that wraps to stacked rows when the terminal is narrow.
+Adding terminals doesn't multiply work. The usage panel reads each session's own `rate_limits` — the figure Claude Code already pulled from the server and put in this render's input — with plain bash (no `jq`, no cross-window aggregation). A normal render tick spawns only `date`/`stat`. (This avoids the fork/exec storm that pins macOS `sysmond` when a heavy status line refreshes every second in every window.) The other panels (context, cost, git) likewise read this session's input directly. The bar composes only the panels you enabled, on one row that wraps to stacked rows when the terminal is narrow.
 
-Cheap doesn't mean stale: each window also overlays its own live reading from the current tick (bash regex, still no `jq`), so the active window never trails the cache — the cache fills in for idle windows.
+Accurate, not guessed: because each session shows the server's own number verbatim, a limit reset can't desync the bar — there's no shared cache holding a stale value to disagree with it. An idle render (no `rate_limits` that tick) shows that session's last real reading until its next turn.
 
 ## Files (`assets/`)
 
 - `statusbar.sh` — the status line: renders enabled panels, composes layout.
-- `usage-read.sh` — shared aggregator for the usage panel.
 - `sync-settings.sh` — writes our entries into `settings.json` (preserves yours; timestamped backup).
 - `config` — the toggle list (on/off per function).
 - `install.sh` — deploy runtime + wire `settings.json` + hardwire the toggle block into `~/CLAUDE.md`.

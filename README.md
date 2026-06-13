@@ -55,9 +55,9 @@ The installer also adds a small marked block to your **`~/CLAUDE.md`**, so from 
 
 ## How it stays cheap
 
-Opening more terminals doesn't multiply work. The account-wide usage panel uses a shared cache — one session computes the value, the rest just read it; a normal render spawns only `date`/`stat`, no `jq`. This avoids the fork/exec storm that pins macOS `sysmond` when a heavy status line refreshes every second in every window. Per-session panels read this session's JSON directly.
+Opening more terminals doesn't multiply work. The usage panel reads each session's own `rate_limits` — the figure Claude Code already pulled from the server and put in this render's input — with plain bash (no `jq`, no cross-window aggregation). A normal render spawns only `date`/`stat`. This avoids the fork/exec storm that pins macOS `sysmond` when a heavy status line refreshes every second in every window. The other panels read this session's input directly too.
 
-Cheap doesn't mean stale: each window also overlays its **own live reading** from the current tick (extracted with bash regex, still no `jq`), so the window you're actively working in never trails the cache — the cache only fills in for idle windows.
+**Accurate, not guessed.** Each session shows the server's own number verbatim, so a limit reset can't desync the bar — there's no shared cache holding a stale value to disagree with it. The window you're working in is always the server's current figure for that session; an idle window shows its last real reading until its next turn. (Making an *idle* window update in real time would require an independent authenticated pull from Anthropic's usage endpoint — possible, but it needs access to your Claude Code auth token.)
 
 ## Scope — system, not content
 

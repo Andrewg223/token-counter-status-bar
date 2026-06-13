@@ -54,11 +54,13 @@ BLOCK
   rm -f "$cm.sbtmp.$$"
 }
 
-for f in statusbar.sh usage-read.sh sync-settings.sh notify.sh subagent-statusline.sh; do
+for f in statusbar.sh sync-settings.sh notify.sh subagent-statusline.sh; do
   cp "$SRC/$f" "$DIR/$f"
 done
 chmod +x "$DIR"/*.sh
 [ -f "$DIR/config" ] || cp "$SRC/config.default" "$DIR/config"
+# retire the old cross-window aggregator + its cache (usage is now read per-session, no jq)
+rm -f "$DIR/usage-read.sh" "$DIR/usage-synced" "$DIR"/usage/*.json 2>/dev/null
 
 # wire settings.json (status line + notifier/subagent/safebash per config)
 "$DIR/sync-settings.sh"
