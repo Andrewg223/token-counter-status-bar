@@ -44,15 +44,42 @@ fmtk() { local n=${1:-0} u d
 # window that is behind still shows what another window just published. Each observation is
 # the rate_limits Claude Code put in this render (the server's figure, the same /usage shows).
 #
-# The SSOT keeps the reading from the NEWEST window (largest resets_at) and, within that
-# window, the HIGHEST percent. That is provably the current value: resets_at only moves
-# forward as a window rolls, so a later resets_at is a newer window (a reset is reflected the
-# instant any window observes it); within one window account usage only climbs, so the max
-# percent is now. No wall-clock anywhere — an idle render re-emitting an old reading cannot
-# "refresh" it, which is the bug that broke the first cross-window attempt. No jq on any tick.
+# "FRESHEST GENUINE READING WINS." The earlier all-time-max rule was wrong: the weekly figure
+# genuinely DECREASES (rolling 7-day window / server recompute) at a constant resets_at, and an
+# idle terminal re-emits its last high reading on EVERY render — so a max accumulator froze at an
+# old peak for up to a week. The fix has two parts:
+#   1. Per metric the SSOT carries percent + resets_at + an observed-at wall stamp. A reading wins
+#      when its resets_at is NEWER, or (same window) it was observed at-or-after the stored stamp.
+#      That lets a later genuine reading move the value DOWN as well as up.
+#   2. Each window remembers its own last raw reading (a tiny per-session file under $DIR keyed by
+#      session_id). A reading that DIFFERS from this window's last-seen (or is its first ever) is a
+#      genuine new server observation and may write; a byte-identical re-emit is an idle tick and
+#      writes NOTHING — so a frozen window can never refresh a stale peak.
+# Display still reads the shared SSOT, so every window shows one account-wide value. No jq, no
+# external process on this path; atomic tmp+mv writes; per-session state is pruned on write.
 panel_usage() {
-  local SP="" SR="" WP="" WR=""
-  [ -r "$USAGE_SSOT" ] && IFS=$'\t' read -r SP SR WP WR < "$USAGE_SSOT"   # last published account-wide value
+  local SP="" SR="" SOA="" WP="" WR="" WOA=""
+  # Read the SSOT defensively. The 6 fields (SP|SR|SOA|WP|WR|WOA) are '|'-delimited:
+  # '|' is NOT IFS-whitespace, so `read` keeps empty fields in place positionally. (Tab
+  # would collapse leading/middle empties — a weekly-only line ||​|WP|WR|WOA would slide
+  # the weekly percent into the SESSION slot and fabricate "SESSION 40%".)
+  # Then validate SEMANTICS, not just presence: percents (_f1/_f4) must be 0-100 and
+  # observed-at stamps (_f3/_f6) must be 10+-digit epochs; any field may be empty. A legacy
+  # tab 4-field file (SP\tSR\tWP\tWR) contains no '|', so it lands wholly in _f1 (non-numeric)
+  # and is rejected. Anything off-format -> treat the whole line as empty rather than render garbage.
+  if [ -r "$USAGE_SSOT" ]; then
+    local _f1 _f2 _f3 _f4 _f5 _f6 _f7
+    IFS='|' read -r _f1 _f2 _f3 _f4 _f5 _f6 _f7 < "$USAGE_SSOT"
+    if [ -z "$_f7" ] \
+       && { [ -z "$_f1" ] || { [[ "$_f1" =~ ^[0-9.]+$ ]] && [ "$(int "$_f1")" -le 100 ]; }; } \
+       && { [ -z "$_f4" ] || { [[ "$_f4" =~ ^[0-9.]+$ ]] && [ "$(int "$_f4")" -le 100 ]; }; } \
+       && { [ -z "$_f3" ] || [[ "$_f3" =~ ^[0-9]{10,}$ ]]; } \
+       && { [ -z "$_f6" ] || [[ "$_f6" =~ ^[0-9]{10,}$ ]]; } \
+       && { [ -z "$_f2" ] || [[ "$_f2" =~ ^[0-9]+$ ]]; } \
+       && { [ -z "$_f5" ] || [[ "$_f5" =~ ^[0-9]+$ ]]; }; then
+      SP="$_f1"; SR="$_f2"; SOA="$_f3"; WP="$_f4"; WR="$_f5"; WOA="$_f6"
+    fi
+  fi
 
   if [[ "$input" == *'"rate_limits"'* ]]; then
     # my own observation from this render — five_hour = 5h session, seven_day = weekly.
@@ -62,18 +89,40 @@ panel_usage() {
     [[ "$input" =~ \"five_hour\"[^}]*\"resets_at\"[[:space:]]*:[[:space:]]*([0-9]+) ]] && oSR="${BASH_REMATCH[1]}"
     [[ "$input" =~ \"seven_day\"[^}]*\"used_percentage\"[[:space:]]*:[[:space:]]*([0-9.]+) ]] && oWP="${BASH_REMATCH[1]}"
     [[ "$input" =~ \"seven_day\"[^}]*\"resets_at\"[[:space:]]*:[[:space:]]*([0-9]+) ]] && oWR="${BASH_REMATCH[1]}"
-    # merge in: a newer window always wins; within the same window, a higher percent wins.
-    if [ -n "$oSR" ] && { [ -z "$SR" ] || [ "$oSR" -gt "$SR" ] || { [ "$oSR" -eq "$SR" ] && [ "$(int "$oSP")" -gt "$(int "${SP:-0}")" ]; }; }; then SP="$oSP"; SR="$oSR"; changed=1; fi
-    if [ -n "$oWR" ] && { [ -z "$WR" ] || [ "$oWR" -gt "$WR" ] || { [ "$oWR" -eq "$WR" ] && [ "$(int "$oWP")" -gt "$(int "${WP:-0}")" ]; }; }; then WP="$oWP"; WR="$oWR"; changed=1; fi
-    # publish the advanced SSOT so every other window sees it (atomic)
-    [ "$changed" = 1 ] && { printf '%s\t%s\t%s\t%s\n' "$SP" "$SR" "$WP" "$WR" > "$USAGE_SSOT.tmp.$$" && mv -f "$USAGE_SSOT.tmp.$$" "$USAGE_SSOT"; }
+
+    # Is this a GENUINE fresh observation for this window, or a byte-identical idle re-emit?
+    # Compare the raw reading against this window's last-seen, stored per session under $DIR.
+    local sid="x"
+    [[ "$input" =~ \"session_id\"[[:space:]]*:[[:space:]]*\"([^\"]*)\" ]] && sid="${BASH_REMATCH[1]}"
+    local SEEN="$DIR/usage-seen-$sid" cur="$oSP|$oSR|$oWP|$oWR" prev="" genuine=1
+    [ -r "$SEEN" ] && IFS= read -r prev < "$SEEN"
+    [ "$cur" = "$prev" ] && genuine=0
+    if [ "$genuine" = 1 ]; then
+      printf '%s\n' "$cur" > "$SEEN.tmp.$$" && mv -f "$SEEN.tmp.$$" "$SEEN"
+      # prune stale per-session state (>1 day old) so files don't accumulate
+      find "$DIR" -maxdepth 1 -name 'usage-seen-*' -type f -mtime +1 -delete 2>/dev/null
+      # freshest-genuine-wins: newer window (resets_at advanced) always wins; within the same
+      # window the reading observed at-or-after the stored stamp wins — letting values fall.
+      # ("Freshest" = most-recently-RENDERED genuine reading; the server's observation time isn't
+      # in the payload. So a window's first post-idle reading can briefly win even if stale — but it
+      # self-heals on the next changed reading from any window, unlike the old permanent max-ratchet.)
+      if [ -n "$oSR" ] && { [ -z "$SR" ] || [ "$oSR" -gt "$SR" ] || { [ "$oSR" -eq "$SR" ] && [ "$now" -ge "${SOA:-0}" ]; }; }; then
+        SP="$oSP"; SR="$oSR"; SOA="$now"; changed=1
+      fi
+      if [ -n "$oWR" ] && { [ -z "$WR" ] || [ "$oWR" -gt "$WR" ] || { [ "$oWR" -eq "$WR" ] && [ "$now" -ge "${WOA:-0}" ]; }; }; then
+        WP="$oWP"; WR="$oWR"; WOA="$now"; changed=1
+      fi
+      # publish the advanced SSOT so every other window sees it (atomic). '|'-delimited so
+      # empty leading/middle fields (e.g. a weekly-only reading) survive the read-back intact.
+      [ "$changed" = 1 ] && { printf '%s|%s|%s|%s|%s|%s\n' "$SP" "$SR" "$SOA" "$WP" "$WR" "$WOA" > "$USAGE_SSOT.tmp.$$" && mv -f "$USAGE_SSOT.tmp.$$" "$USAGE_SSOT"; }
+    fi
   fi
 
-  if [ -n "$SP" ]; then local p rs="" d; p=$(int "$SP")
+  if [ -n "$SP" ]; then local p rs="" d; p=$(int "$SP"); [ "$p" -gt 100 ] && p=100; [ "$p" -lt 0 ] && p=0
     if [ -n "$SR" ]; then d=$((SR - now)); if [ $d -le 0 ]; then rs=now; else rs="$((d/3600))h$(((d%3600)/60))m"; fi; fi
     add "$(printf 'SESSION %b%s\033[0m %d%% \033[90m%s\033[0m' "$(colpct $p)" "$(mkbar $p)" "$p" "$rs")" "SESSION $PLAINBAR $p% $rs"
   fi
-  if [ -n "$WP" ]; then local p WSTR=""; p=$(int "$WP")
+  if [ -n "$WP" ]; then local p WSTR=""; p=$(int "$WP"); [ "$p" -gt 100 ] && p=100; [ "$p" -lt 0 ] && p=0
     if [ -n "$WR" ]; then if [ "$WR" -le "$now" ] 2>/dev/null; then WSTR=now; else WSTR=$(date -r "$WR" '+%a %H:%M'); fi; fi
     add "$(printf 'WEEK %b%s\033[0m %d%% \033[90m%s\033[0m' "$(colpct $p)" "$(mkbar $p)" "$p" "$WSTR")" "WEEK $PLAINBAR $p% $WSTR"
   fi
