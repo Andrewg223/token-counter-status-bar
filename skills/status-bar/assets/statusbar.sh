@@ -132,8 +132,8 @@ panel_usage() {
 panel_context() {
   # Percentage only — Claude's own used_percentage (matches /context). No token
   # count shown (the count had a moving definition; the % is unambiguous).
-  local M IN S UP; IFS=$'\t' read -r M IN S UP < <(printf '%s' "$input" | jq -r \
-    '[.model.display_name//"?", (.context_window.total_input_tokens//-1), (.context_window.context_window_size//200000), (.context_window.used_percentage//-1)] | @tsv')
+  # Scalars come from the one shared jq pass (extract_json), not a per-panel fork.
+  local IN="$J_CTX_IN" S="$J_CTX_SIZE" UP="$J_CTX_UP"
   [ -z "$IN" ] || [ "$IN" = "-1" ] && return
   [ "$S" -le 0 ] && S=200000
   local p
@@ -144,25 +144,25 @@ panel_context() {
 
 # ---------- panel: cost, $ only (per session, API/pay-per-use) ----------
 panel_cost() {
-  local C; C=$(printf '%s' "$input" | jq -r '.cost.total_cost_usd // 0')
-  local cf; cf=$(printf '$%.2f' "$C")
+  local cf; cf=$(printf '$%.2f' "$J_COST")
   add "$(printf 'COST %s' "$cf")" "COST $cf"
 }
 
 # ---------- element: active time (how long this session has run; any billing) ----------
 panel_active() {
-  local D; D=$(printf '%s' "$input" | jq -r '.cost.total_duration_ms // 0')
+  local D="$J_DUR"
   local sec=$((D/1000)) h m t; h=$((sec/3600)); m=$(((sec%3600)/60))
   if [ "$h" -gt 0 ]; then t="${h}h${m}m"; else t="${m}m$((sec%60))s"; fi
   add "$(printf 'active \033[90m%s\033[0m' "$t")" "active $t"
 }
 
-# ---------- panel: git + PR (per session, git cached 3s) ----------
+# ---------- panel: git + PR (per session, git cached 15s) ----------
 panel_git() {
-  local DIRP SID PRN PRS; IFS=$'\t' read -r DIRP SID PRN PRS < <(printf '%s' "$input" | jq -r \
-    '[.workspace.current_dir//".", .session_id//"x", (.pr.number//""), (.pr.review_state//"")] | @tsv')
+  local DIRP="$J_DIR" SID="$J_SID" PRN="$J_PRN" PRS="$J_PRS"
   local CG="/tmp/sb-git-$SID" fresh=0
-  if [ -f "$CG" ]; then [ $(( now - $(stat -f %m "$CG" 2>/dev/null || echo 0) )) -lt 3 ] && fresh=1; fi
+  # git is the heaviest panel (3 subprocesses + repo I/O). Cache 15s: at refreshInterval=3 it then
+  # runs ~once per 15s instead of nearly every render. Branch/diff rarely change second-to-second.
+  if [ -f "$CG" ]; then [ $(( now - $(stat -f %m "$CG" 2>/dev/null || echo 0) )) -lt 15 ] && fresh=1; fi
   if [ "$fresh" = 0 ]; then
     if git -C "$DIRP" rev-parse --git-dir >/dev/null 2>&1; then
       printf '%s\t%s\t%s\n' "$(git -C "$DIRP" branch --show-current 2>/dev/null)" \
@@ -189,6 +189,17 @@ panel_menu() {
   add "$(printf '\033[90mMENU %s\033[0m' "$t")" "MENU $t"
 }
 
+# ---------- one shared jq pass (power: 3 jq forks -> 1 per render) ----------
+# The non-usage panels (context, cost, active, git) used to each fork their own jq. This pulls
+# every scalar they need in ONE jq call into globals; each panel then reads vars (no fork).
+# Only the last two fields (PR number/state) can be empty, and they are trailing, so the @tsv
+# round-trips cleanly. usage parses with bash regex and does not use this. Run only when a
+# jq-consuming panel is actually enabled, so the all-off case still forks zero jq.
+extract_json() {
+  IFS=$'\t' read -r J_MODEL J_CTX_IN J_CTX_SIZE J_CTX_UP J_COST J_DUR J_DIR J_SID J_PRN J_PRS \
+    < <(printf '%s' "$input" | jq -r '[.model.display_name//"?", (.context_window.total_input_tokens//-1), (.context_window.context_window_size//200000), (.context_window.used_percentage//-1), (.cost.total_cost_usd//0), (.cost.total_duration_ms//0), (.workspace.current_dir//"."), (.session_id//"x"), (.pr.number//""), (.pr.review_state//"")] | @tsv')
+}
+
 # Billing-aware: a Pro/Max subscription exposes rate_limits and is bounded by usage
 # limits (not $); API/pay-per-use has no rate_limits and is billed by $ cost. Show
 # only what's relevant to the current chat's billing mode.
@@ -198,6 +209,14 @@ panel_menu() {
 # the usage SSOT, so idle / cold-start renders keep showing usage instead of flipping to the
 # cost panel. An API-only machine never sees rate_limits and never creates the SSOT → SUB=0.
 if [[ "$input" == *'"rate_limits"'* ]] || [ -r "$USAGE_SSOT" ]; then SUB=1; else SUB=0; fi
+
+# do the single jq pass once, only if a jq-consuming panel will actually render
+need_json=0
+[ "$PANEL_CONTEXT" = on ] && need_json=1
+[ "$PANEL_ACTIVE" = on ] && need_json=1
+[ "$PANEL_GIT" = on ] && need_json=1
+[ "$PANEL_COST" = on ] && [ "$SUB" = 0 ] && need_json=1
+[ "$need_json" = 1 ] && extract_json
 
 [ "$PANEL_USAGE" = on ] && [ "$SUB" = 1 ] && panel_usage     # usage limits: subscription only
 [ "$PANEL_CONTEXT" = on ] && panel_context
